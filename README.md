@@ -7,15 +7,20 @@ software running.
 
 It gives you:
 
-- **A multi-grid launcher** rendered on the panel — tap a tile to open an app,
-  URL, shell command, file, or system action (lock screen).
-- **Knob control** — rotate for volume, single-click to mute, **double-click to
-  open a grid selector** (rotate to pick a grid by name, press to switch).
-- **A PC-side grid editor** — create/rename/resize grids and assign programs &
-  icons to tiles, with a Browse… picker. Auto-saves and pushes live to the panel.
+- **A multi-grid launcher** — each page is a grid of tiles; tap a tile to open an
+  app, URL, shell command, file, or system action (lock screen). A tile's icon
+  can be an emoji, the program's own icon, or a custom image.
+- **Web dashboard pages** — a page can instead be a live web view (Home Assistant,
+  Grafana / server monitoring, a status page, …) shown full-screen on the panel:
+  the knob scrolls it, a tap clicks, and logins persist across restarts.
+- **Knob control** — rotate for volume (or to scroll the current dashboard),
+  single-click to mute, **double-click to open the page selector** (rotate to
+  pick a page by name, press to switch).
+- **A PC-side editor** — create grids and dashboards, lay out tiles and their
+  icons (emoji / app icon / image), then **Save** to push to the panel.
 
-> **Status:** early. Touch, knob, multi-grid, and the editor are working and
-> validated against real hardware. The panel is driven as a normal external
+> **Status:** early. Touch, knob, grids, web dashboards, and the editor are
+> working and validated against real hardware. The panel is driven as a normal external
 > monitor (Windows sees a 480×1920 / 1920×480 display); pushing frames over the
 > HID resource channel is not implemented.
 
@@ -42,8 +47,8 @@ docs/DEVICE_PROTOCOL.md   reverse-engineered protocol spec           [PolyForm N
 tools/                    standalone HID probe / write-test scripts  [PolyForm NC]
 app/                      the Electron launcher + PC grid editor     [MIT]
   main.js                 host: windows, IPC, launch/volume/config
-  index.html              the on-panel grid UI
-  config.html             the PC grid editor
+  index.html              the on-panel UI (grids + web dashboards)
+  config.html             the PC editor (pages, tiles, icons)
   config.default.json     seed config (copied to config.json on first run)
 ```
 
