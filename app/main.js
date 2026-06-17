@@ -9,17 +9,24 @@ const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
 let robot = null; try { robot = require('robotjs'); } catch (e) { console.log('robotjs unavailable (knob-volume off):', e.message); }
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
-const DEFAULT_CONFIG_PATH = path.join(__dirname, 'config.default.json');
+const USER_DIR = app.getPath('userData');
+const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
+const DEFAULT_CONFIG_PATH = path.join(__dirname, 'config.default.json'); // bundled (read-only)
+const LEGACY_CONFIG_PATH = path.join(__dirname, 'config.json');          // pre-userData dev location, migrated once
+const APPS_DIR = path.join(__dirname, '..', 'apps').replace('app.asar', 'app.asar.unpacked'); // unpacked when packaged
 let config = loadConfig();
 let panelWin = null, configWin = null;
 const dev = new Aris68Connector({ hid: HID });
 
-// On first run there is no user config.json (it's gitignored so personal setups never get committed);
-// seed it from the shipped default so a fresh clone is immediately usable.
+// User config lives in the OS user-data dir (writable even inside a packaged app). On first run it's
+// seeded from a previous dev config (app/config.json) if present, otherwise the bundled default.
 function loadConfig() {
   try {
-    if (!fs.existsSync(CONFIG_PATH) && fs.existsSync(DEFAULT_CONFIG_PATH)) fs.copyFileSync(DEFAULT_CONFIG_PATH, CONFIG_PATH);
+    if (!fs.existsSync(CONFIG_PATH)) {
+      fs.mkdirSync(USER_DIR, { recursive: true });
+      const seed = fs.existsSync(LEGACY_CONFIG_PATH) ? LEGACY_CONFIG_PATH : DEFAULT_CONFIG_PATH;
+      if (fs.existsSync(seed)) fs.copyFileSync(seed, CONFIG_PATH);
+    }
     return migrateConfig(JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')));
   } catch (e) { console.log('config load error:', e.message); return { activeGridId: null, grids: [] }; }
 }
@@ -37,14 +44,14 @@ function hostMatches(a, b) { try { return new URL(a).host === new URL(b).host; }
 
 // Bundled local apps (apps/apps.json) — name, file, and an options schema the editor renders.
 function loadApps() {
-  try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'apps', 'apps.json'), 'utf8')); }
+  try { return JSON.parse(fs.readFileSync(path.join(APPS_DIR, 'apps.json'), 'utf8')); }
   catch (e) { console.log('apps manifest load error:', e.message); return []; }
 }
 // Build the file: URL for an app page, encoding its options as a #hash (file:// drops a ?query).
 function appPageUrl(page) {
   const def = loadApps().find(a => a.id === page.app);
   if (!def) return 'about:blank';
-  const file = path.join(__dirname, '..', 'apps', def.file);
+  const file = path.join(APPS_DIR, def.file);
   const opts = page.options || {};
   const hash = (def.options || []).map(o => {
     let v = (o.key in opts) ? opts[o.key] : o.default;

@@ -4,9 +4,11 @@
   "private": true,
   "description": "Open driver + multi-grid touchscreen launcher for the DK-QUAKE / ARIS-68 touchscreen-and-knob macro device.",
   "main": "app/main.js",
+  "author": "TeeJS",
   "scripts": {
     "start": "electron .",
-    "rebuild": "electron-rebuild -v 23.0.0 -f"
+    "rebuild": "electron-rebuild -v 23.0.0 -f",
+    "dist": "electron-builder --win"
   },
   "license": "SEE LICENSE IN LICENSE",
   "keywords": [
@@ -23,7 +25,41 @@
     "robotjs": "^0.6.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
     "electron": "^23.0.0",
-    "@electron/rebuild": "^3.6.0"
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.teejs.openquake",
+    "productName": "open-quake",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!app/config.json",
+      "!docs/**",
+      "!tools/**"
+    ],
+    "npmRebuild": false,
+    "asarUnpack": [
+      "apps/**/*",
+      "**/*.node"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "portable": {
+      "artifactName": "open-quake-${version}-portable.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "artifactName": "open-quake-${version}-setup.${ext}"
+    }
   }
 }

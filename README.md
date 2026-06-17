@@ -28,6 +28,17 @@ It gives you:
 > monitor (Windows sees a 480×1920 / 1920×480 display); pushing frames over the
 > HID resource channel is not implemented.
 
+## Download
+
+Grab a build from the **[Releases](https://github.com/TeeJS/open-quake/releases)** page (Windows x64):
+- **`open-quake-<version>-portable.exe`** — run directly, no install.
+- **`open-quake-<version>-setup.exe`** — installer (Start-menu shortcut + uninstaller).
+
+The exe isn't code-signed, so Windows SmartScreen warns on first launch — click
+**More info → Run anyway**. Plug in the DK-QUAKE, then launch; config is stored in
+`%APPDATA%\open-quake`. (Linux/macOS builds would need platform-specific launch/volume
+work — not done yet.)
+
 ## Hardware
 
 The DK-QUAKE's screen is a standard external monitor (HDMI or USB-C DisplayPort
