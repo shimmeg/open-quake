@@ -158,7 +158,13 @@ app.whenReady().then(() => {
   ipcMain.on('switchGrid', (e, id) => { if (config.grids.some(g => g.id === id)) { config.activeGridId = id; saveConfig(); pushToPanel(); } });
   ipcMain.on('openConfig', () => openConfigWindow());
   ipcMain.handle('getConfig', () => config);
-  ipcMain.on('saveConfigFromEditor', (e, newCfg) => { config = newCfg; saveConfig(); pushToPanel(); });
+  ipcMain.on('saveConfigFromEditor', (e, newCfg) => {
+    const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
+    config = newCfg;
+    if (config.grids.some(g => g.id === active)) config.activeGridId = active;
+    else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
+    saveConfig(); pushToPanel();
+  });
   ipcMain.handle('pickProgram', async () => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }] });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];

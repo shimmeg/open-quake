@@ -19,6 +19,9 @@
   .tile .ic { font-size: 60px; line-height: 1; }
   .tile .ic-img { width: 64px; height: 64px; object-fit: contain; }
   .tile .lb { font-size: 20px; margin-top: 8px; color: #9fb3c8; }
+  .tile.span .ic { font-size: 104px; }
+  .tile.span .ic-img { width: 104px; height: 104px; }
+  .tile.span .lb { font-size: 26px; }
   .tile.hit { background: linear-gradient(160deg, #2b8bff, #0a5bd0); border-color: #7CFFB2;
     color: #fff; transform: scale(.95); box-shadow: 0 0 28px rgba(43,139,255,.55); }
   #vol { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 44px;
@@ -84,10 +87,15 @@
     grid.style.gridTemplateRows = `repeat(${cfg.rows},1fr)`;
     grid.innerHTML = '';
     cfg.tiles.forEach((t, i) => {
+      if (t && t.cover != null) return;                        // covered by a merged tile
+      const col = i % cfg.cols, row = Math.floor(i / cfg.cols);
+      const w = (t && t.w) || 1, h = (t && t.h) || 1;
       const d = document.createElement('div');
       const empty = !t || !t.type;
-      d.className = 'tile' + (empty ? ' empty' : '');
+      d.className = 'tile' + (empty ? ' empty' : '') + ((w > 1 || h > 1) ? ' span' : '');
       d.dataset.i = i;
+      d.style.gridColumn = `${col + 1} / span ${w}`;
+      d.style.gridRow = `${row + 1} / span ${h}`;
       const ic = t.iconSrc ? `<img class="ic-img" src="${t.iconSrc}">` : `<div class="ic">${t.icon || '▫️'}</div>`;
       d.innerHTML = empty ? '' : `${ic}<div class="lb">${t.label || ''}</div>`;
       grid.appendChild(d);
@@ -111,12 +119,15 @@
   function tileAt(sx, sy) {
     const col = Math.floor(sx / (1920 / cfg.cols)), row = Math.floor(sy / (480 / cfg.rows));
     if (col < 0 || col >= cfg.cols || row < 0 || row >= cfg.rows) return -1;
-    return row * cfg.cols + col;
+    let idx = row * cfg.cols + col;
+    const t = cfg.tiles[idx];
+    if (t && t.cover != null) idx = t.cover;                  // covered cell -> its merged owner
+    return idx;
   }
   function highlight(i) {
     if (i === lastHit) return;
-    if (grid.children[lastHit]) grid.children[lastHit].classList.remove('hit');
-    if (i >= 0 && grid.children[i] && cfg.tiles[i] && cfg.tiles[i].type) grid.children[i].classList.add('hit');
+    if (lastHit >= 0) { const p = grid.querySelector(`[data-i="${lastHit}"]`); if (p) p.classList.remove('hit'); }
+    if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { const el = grid.querySelector(`[data-i="${i}"]`); if (el) el.classList.add('hit'); }
     lastHit = i;
   }
   ipcRenderer.on('touch', (e, pts) => {

@@ -27,14 +27,20 @@
   input, select { background: #0e141c; color: #dbe5f0; border: 1px solid #2a3a4e; border-radius: 6px; padding: 7px 9px; font-size: 13px; width: 100%; }
   .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
   .row label { width: 70px; color: #91a4ba; font-size: 13px; flex: none; }
-  .tilegrid { display: grid; gap: 8px; margin: 10px 0 16px; }
-  .cell { aspect-ratio: 1; border-radius: 12px; background: #141d29; border: 1px solid #233246; cursor: pointer;
+  .tilegrid { display: grid; gap: 8px; margin: 10px 0 12px; }
+  .cell { border-radius: 12px; background: #141d29; border: 1px solid #233246; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bcd; overflow: hidden; }
   .cell:hover { border-color: #2b6fb0; }
-  .cell.sel { border-color: #7CFFB2; box-shadow: 0 0 0 2px rgba(124,255,178,.35); }
   .cell.empty { background: #0d141d; border-style: dashed; color: #3a4a5e; }
+  .cell.sel { border-color: #7CFFB2; box-shadow: 0 0 0 2px rgba(124,255,178,.45); }
+  .cell.insel { background: #1b4a7a !important; border-color: #4ea3ff; box-shadow: inset 0 0 0 3px #4ea3ff; }
   .cell .ic { font-size: 30px; line-height: 1; } .cell .lb { font-size: 12px; margin-top: 4px; color: #91a4ba; }
+  .cell.span .ic { font-size: 48px; } .cell.span .cimg { width: 52px; height: 52px; }
   .cell .cimg { width: 34px; height: 34px; object-fit: contain; }
+  .mergebar { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; min-height: 20px; }
+  .mergebar.active { background: #13243a; border: 1px solid #2b6fb0; border-radius: 8px; padding: 10px 14px; }
+  .mergebar .hint { margin: 0; }
+  .mergebar b { color: #cfe0f2; }
   .panes { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
   .form { background: #0e141c; border: 1px solid #1e2733; border-radius: 10px; padding: 14px; flex: 1; min-width: 360px; max-width: 460px; }
   .iconbox { background: #0e141c; border: 1px solid #1e2733; border-radius: 10px; padding: 14px; width: 320px; flex: none; }
@@ -71,6 +77,7 @@
     <div class="col editor">
       <div id="gridmeta"></div>
       <div id="tilegrid" class="tilegrid"></div>
+      <div id="mergebar" class="mergebar"></div>
       <div class="panes">
         <div id="tileform"></div>
         <div id="iconpane"></div>
@@ -85,7 +92,7 @@
   const { ipcRenderer } = require('electron');
   const { pathToFileURL } = require('url');
   let config = { activeGridId: null, grids: [] };
-  let gi = 0, ti = -1, dirty = false;
+  let gi = 0, ti = -1, selEnd = -1, dirty = false;
   const appIconCache = {};   // app value -> dataURL | false (failed) | null (in-flight)
   const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)']];
   const uid = () => 'g' + Math.random().toString(36).slice(2, 8);
@@ -130,8 +137,8 @@
       const d = document.createElement('div');
       d.className = 'gridrow' + (i === gi ? ' active' : '');
       const tag = g.kind === 'web' ? '🌐' : '▦';
-      d.innerHTML = `<span>${tag} ${esc(g.name) || '(unnamed)'}</span>` + (g.id === config.activeGridId ? '<span class="badge">● on panel</span>' : '');
-      d.onclick = () => { gi = i; ti = -1; render(); };
+      d.innerHTML = `<span>${tag} ${esc(g.name) || '(unnamed)'}</span>`;
+      d.onclick = () => { gi = i; ti = -1; selEnd = -1; render(); };
       el.appendChild(d);
     });
   }
@@ -145,32 +152,87 @@
       <div class="row"><label>Columns</label><input id="gCols" type="number" min="1" max="12" value="${g.cols}" style="width:90px">
         <label style="width:auto;margin-left:10px">Rows</label><input id="gRows" type="number" min="1" max="6" value="${g.rows}" style="width:90px"></div>
       <div class="row">
-        <button id="gActive">Show on panel</button>
         <button class="danger" id="gDelete">Delete grid</button>
       </div>`;
     document.getElementById('gName').oninput = e => { g.name = e.target.value; renderGrids(); markDirty(); };
-    document.getElementById('gCols').onchange = e => { g.cols = Math.max(1, Math.min(12, +e.target.value || 1)); ensureTiles(g); ti = -1; render(); markDirty(); };
-    document.getElementById('gRows').onchange = e => { g.rows = Math.max(1, Math.min(6, +e.target.value || 1)); ensureTiles(g); ti = -1; render(); markDirty(); };
-    document.getElementById('gActive').onclick = () => { config.activeGridId = g.id; renderGrids(); markDirty(); };
+    document.getElementById('gCols').onchange = e => { clearAllMerges(g); g.cols = Math.max(1, Math.min(12, +e.target.value || 1)); ensureTiles(g); ti = -1; selEnd = -1; render(); markDirty(); };
+    document.getElementById('gRows').onchange = e => { clearAllMerges(g); g.rows = Math.max(1, Math.min(6, +e.target.value || 1)); ensureTiles(g); ti = -1; selEnd = -1; render(); markDirty(); };
     document.getElementById('gDelete').onclick = deleteCurrentPage;
   }
 
-  // ---- tile cells ----
+  // ---- tile cells (with merge/span support) ----
+  const rc = (g, i) => ({ c: i % g.cols, r: Math.floor(i / g.cols) });
+  function selRect(g) {
+    if (ti < 0) return null;
+    const a = rc(g, ti), b = rc(g, selEnd >= 0 ? selEnd : ti);
+    return { c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c), r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r) };
+  }
   function renderTiles() {
     const g = curGrid(); const el = document.getElementById('tilegrid');
     if (!g) { el.innerHTML = ''; return; }
     ensureTiles(g);
     el.style.gridTemplateColumns = `repeat(${g.cols}, 1fr)`;
+    el.style.gridTemplateRows = `repeat(${g.rows}, 64px)`;
     el.innerHTML = '';
+    const rect = selRect(g);
     g.tiles.forEach((t, i) => {
+      if (t && t.cover != null) return;                          // covered by a merged tile
+      const { c, r } = rc(g, i), w = (t && t.w) || 1, h = (t && t.h) || 1;
       const empty = !t || !t.type;
+      const inSel = selEnd >= 0 && rect && c >= rect.c0 && c <= rect.c1 && r >= rect.r0 && r <= rect.r1;
       const d = document.createElement('div');
-      d.className = 'cell' + (i === ti ? ' sel' : '') + (empty ? ' empty' : '');
+      d.className = 'cell' + (i === ti ? ' sel' : '') + (inSel ? ' insel' : '') + (empty ? ' empty' : '') + ((w > 1 || h > 1) ? ' span' : '');
+      d.style.gridColumn = `${c + 1} / span ${w}`;
+      d.style.gridRow = `${r + 1} / span ${h}`;
       d.innerHTML = empty ? '+' : `${iconHtml(t, 'cell')}<div class="lb">${esc(t.label)}</div>`;
-      d.onclick = () => { ti = i; render(); };
+      d.onclick = e => { if (e.shiftKey && ti >= 0) selEnd = i; else { ti = i; selEnd = -1; } render(); };
       el.appendChild(d);
     });
+    renderMergeBar(g);
   }
+  function renderMergeBar(g) {
+    const el = document.getElementById('mergebar'); if (!el) return;
+    const rect = selRect(g);
+    const multi = selEnd >= 0 && rect && (rect.c1 > rect.c0 || rect.r1 > rect.r0);
+    const t = ti >= 0 ? g.tiles[ti] : null;
+    const merged = t && ((t.w || 1) > 1 || (t.h || 1) > 1);
+    el.className = 'mergebar' + ((multi || merged) ? ' active' : '');
+    if (multi) {
+      el.innerHTML = `<b>${rect.c1 - rect.c0 + 1}×${rect.r1 - rect.r0 + 1} block selected</b><button class="primary" id="mergeBtn">Merge into one button</button><span class="hint">uses the top-left tile’s label / icon / action</span>`;
+      document.getElementById('mergeBtn').onclick = () => mergeSelection(g);
+    } else if (merged) {
+      el.innerHTML = `<b>Merged tile</b><button id="unmergeBtn">Unmerge</button><span class="hint">split back into single cells</span>`;
+      document.getElementById('unmergeBtn').onclick = () => unmergeTile(g);
+    } else {
+      el.innerHTML = `<span class="hint">Tip: click a tile, then <b>Shift-click</b> another to select a block — a Merge button appears here.</span>`;
+    }
+  }
+  function flattenAt(g, idx) {                                    // fully un-merge any merge touching cell idx
+    const t = g.tiles[idx]; if (!t) return;
+    const owner = (t.cover != null) ? t.cover : idx;
+    const o = g.tiles[owner]; if (!o) { g.tiles[idx] = blankTile(); return; }
+    const w = o.w || 1, h = o.h || 1;
+    if (w > 1 || h > 1) {
+      const oc = owner % g.cols, or = Math.floor(owner / g.cols);
+      for (let r = or; r < or + h; r++) for (let c = oc; c < oc + w; c++) {
+        const ci = r * g.cols + c; if (ci !== owner && g.tiles[ci]) g.tiles[ci] = blankTile();
+      }
+      o.w = 1; o.h = 1;
+    }
+  }
+  function clearAllMerges(g) { for (let i = 0; i < g.tiles.length; i++) flattenAt(g, i); }
+  function mergeSelection(g) {
+    const rect = selRect(g); if (!rect) return;
+    for (let r = rect.r0; r <= rect.r1; r++) for (let c = rect.c0; c <= rect.c1; c++) flattenAt(g, r * g.cols + c);
+    const owner = rect.r0 * g.cols + rect.c0;
+    g.tiles[owner].w = rect.c1 - rect.c0 + 1;
+    g.tiles[owner].h = rect.r1 - rect.r0 + 1;
+    for (let r = rect.r0; r <= rect.r1; r++) for (let c = rect.c0; c <= rect.c1; c++) {
+      const idx = r * g.cols + c; if (idx !== owner) g.tiles[idx] = { cover: owner };
+    }
+    ti = owner; selEnd = -1; render(); markDirty();
+  }
+  function unmergeTile(g) { flattenAt(g, ti); selEnd = -1; render(); markDirty(); }
 
   // ---- tile form (left) ----
   function renderForm() {
@@ -189,7 +251,7 @@
     document.getElementById('tLabel').oninput = e => { t.label = e.target.value; renderTiles(); markDirty(); };
     document.getElementById('tType').onchange = e => { t.type = e.target.value; render(); markDirty(); };
     document.getElementById('tValue').oninput = e => { t.value = e.target.value; renderTiles(); renderIconPane(); markDirty(); };
-    document.getElementById('tClear').onclick = () => { g.tiles[ti] = blankTile(); render(); markDirty(); };
+    document.getElementById('tClear').onclick = () => { flattenAt(g, ti); g.tiles[ti] = blankTile(); render(); markDirty(); };
     const br = document.getElementById('tBrowse');
     if (br) br.onclick = async () => { const p = await ipcRenderer.invoke('pickProgram'); if (p) { t.value = p; if (!t.label) t.label = baseName(p); render(); markDirty(); } };
     renderIconPane();
@@ -271,13 +333,12 @@
         <option value="header" ${g.auth.type === 'header' ? 'selected' : ''}>Custom header(s)</option>
       </select></div>
       <div id="authFields"></div>
-      <div class="row" style="margin-top:10px"><button id="gActive">Show on panel</button><button class="danger" id="gDelete">Delete page</button></div>
+      <div class="row" style="margin-top:10px"><button class="danger" id="gDelete">Delete page</button></div>
       <p class="hint" id="authHint"></p>
       <p class="hint">Shown full-screen on the panel. Knob scrolls · tap clicks · double-click the knob returns to the page selector.</p>`;
     document.getElementById('gName').oninput = e => { g.name = e.target.value; renderGrids(); markDirty(); };
     document.getElementById('gUrl').oninput = e => { g.url = e.target.value; markDirty(); };
     document.getElementById('gAuth').onchange = e => { setAuthType(g, e.target.value); renderAuthFields(g); markDirty(); };
-    document.getElementById('gActive').onclick = () => { config.activeGridId = g.id; renderGrids(); markDirty(); };
     document.getElementById('gDelete').onclick = deleteCurrentPage;
     renderAuthFields(g);
   }
