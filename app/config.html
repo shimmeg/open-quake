@@ -28,7 +28,7 @@
   .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
   .row label { width: 70px; color: #91a4ba; font-size: 13px; flex: none; }
   .tilegrid { display: grid; gap: 8px; margin: 10px 0 12px; }
-  .cell { border-radius: 12px; background: #141d29; border: 1px solid #233246; cursor: pointer;
+  .cell { border-radius: 12px; background: #141d29; border: 1px solid #233246; cursor: pointer; user-select: none;
     display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bcd; overflow: hidden; }
   .cell:hover { border-color: #2b6fb0; }
   .cell.empty { background: #0d141d; border-style: dashed; color: #3a4a5e; }
@@ -37,6 +37,8 @@
   .cell .ic { font-size: 30px; line-height: 1; } .cell .lb { font-size: 12px; margin-top: 4px; color: #91a4ba; }
   .cell.span .ic { font-size: 48px; } .cell.span .cimg { width: 52px; height: 52px; }
   .cell .cimg { width: 34px; height: 34px; object-fit: contain; }
+  .cell.dragover { border-color: #7CFFB2; box-shadow: 0 0 0 2px #7CFFB2; }
+  .cell img { pointer-events: none; -webkit-user-drag: none; }
   .mergebar { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; min-height: 20px; }
   .mergebar.active { background: #13243a; border: 1px solid #2b6fb0; border-radius: 8px; padding: 10px 14px; }
   .mergebar .hint { margin: 0; }
@@ -92,7 +94,7 @@
   const { ipcRenderer } = require('electron');
   const { pathToFileURL } = require('url');
   let config = { activeGridId: null, grids: [] };
-  let gi = 0, ti = -1, selEnd = -1, dirty = false;
+  let gi = 0, ti = -1, selEnd = -1, dragFrom = -1, dirty = false;
   const appIconCache = {};   // app value -> dataURL | false (failed) | null (in-flight)
   const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)']];
   const uid = () => 'g' + Math.random().toString(36).slice(2, 8);
@@ -186,6 +188,14 @@
       d.style.gridRow = `${r + 1} / span ${h}`;
       d.innerHTML = empty ? '+' : `${iconHtml(t, 'cell')}<div class="lb">${esc(t.label)}</div>`;
       d.onclick = e => { if (e.shiftKey && ti >= 0) selEnd = i; else { ti = i; selEnd = -1; } render(); };
+      if (w === 1 && h === 1) {                                   // 1×1 tiles can be dragged to rearrange (swap)
+        d.draggable = true;
+        d.ondragstart = e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); };
+        d.ondragover = e => { if (dragFrom >= 0 && dragFrom !== i) { e.preventDefault(); d.classList.add('dragover'); } };
+        d.ondragleave = () => d.classList.remove('dragover');
+        d.ondrop = e => { e.preventDefault(); d.classList.remove('dragover'); if (dragFrom >= 0 && dragFrom !== i) swapTiles(g, dragFrom, i); dragFrom = -1; };
+        d.ondragend = () => { dragFrom = -1; };
+      }
       el.appendChild(d);
     });
     renderMergeBar(g);
@@ -233,6 +243,7 @@
     ti = owner; selEnd = -1; render(); markDirty();
   }
   function unmergeTile(g) { flattenAt(g, ti); selEnd = -1; render(); markDirty(); }
+  function swapTiles(g, a, b) { const t = g.tiles[a]; g.tiles[a] = g.tiles[b]; g.tiles[b] = t; ti = b; selEnd = -1; render(); markDirty(); }
 
   // ---- tile form (left) ----
   function renderForm() {
