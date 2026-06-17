@@ -66,6 +66,18 @@
     web.executeJavaScript(`try{localStorage.setItem('hassTokens', ${JSON.stringify(JSON.stringify(tok))});location.replace(${JSON.stringify(curUrl)});}catch(e){}`).catch(() => {});
   });
 
+  // ---- display orientation: rotate only when the panel is a portrait window ----
+  function layoutStage() {
+    const stage = document.getElementById('stage');
+    const w = window.innerWidth, h = window.innerHeight;
+    // Portrait display (e.g. 480x1920): rotate the 1920x480 stage 90° to fill it.
+    // Landscape display (1920x480, Windows Orientation = Landscape): no rotation, so the
+    // OS mouse cursor and the content agree (otherwise the cursor reads 90° off).
+    stage.style.transform = (h > w) ? `translate(${w}px, 0) rotate(90deg)` : 'none';
+  }
+  window.addEventListener('resize', layoutStage);
+  layoutStage();
+
   // ---- active grid ----
   function build() {
     grid.style.gridTemplateColumns = `repeat(${cfg.cols},1fr)`;
