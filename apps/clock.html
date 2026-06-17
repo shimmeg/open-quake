@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Flip Clock</title>
+<style>
+  /* ---- theme ---- */
+  :root {
+    --bg: radial-gradient(120% 160% at 50% 0%, #0e1622 0%, #05080d 70%);
+    --card-top: #20242c;
+    --card-bottom: #141821;
+    --digit: #aef4ff;
+    --digit-glow: 0 0 18px rgba(120, 230, 255, .45);
+    --split: rgba(0, 0, 0, .55);
+    --label: #6f8298;
+    --accent: #7CFFB2;
+    --radius: clamp(6px, 1.4vh, 16px);
+  }
+  body.classic {
+    --bg: radial-gradient(120% 160% at 50% 0%, #2a2622 0%, #15120e 70%);
+    --card-top: #f6f2e9;
+    --card-bottom: #e4ddcf;
+    --digit: #1b1b1b;
+    --digit-glow: none;
+    --split: rgba(0, 0, 0, .28);
+    --label: #b9a98c;
+    --accent: #c8a96b;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--label);
+    display: flex; align-items: center; justify-content: center;
+    -webkit-user-select: none; user-select: none; cursor: default;
+  }
+
+  #clock { display: flex; align-items: center; gap: clamp(8px, 2.2vw, 48px); }
+
+  /* ---- flip group / card ---- */
+  .group { display: flex; gap: clamp(4px, 0.8vw, 16px); }
+  .sep { align-self: center; display: flex; flex-direction: column; gap: 16vh; }
+  .sep i { width: clamp(8px, 1.4vh, 18px); height: clamp(8px, 1.4vh, 18px); border-radius: 50%;
+    background: var(--digit); box-shadow: var(--digit-glow); display: block; }
+
+  .card {
+    position: relative;
+    width: var(--cw); height: var(--ch);
+    font-weight: 700; font-variant-numeric: tabular-nums;
+    border-radius: var(--radius);
+    filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .5));
+  }
+  .card .half, .card .flap {
+    position: absolute; left: 0; right: 0; height: 50%; overflow: hidden;
+    display: block; backface-visibility: hidden;
+  }
+  .card .top    { top: 0;    border-radius: var(--radius) var(--radius) 0 0; background: var(--card-top);    border-bottom: 1px solid var(--split); }
+  .card .bottom { bottom: 0; border-radius: 0 0 var(--radius) var(--radius); background: var(--card-bottom); }
+  .card .d {
+    position: absolute; left: 0; right: 0; height: var(--ch); line-height: var(--ch);
+    text-align: center; font-size: var(--fs); color: var(--digit); text-shadow: var(--digit-glow);
+  }
+  .card .top .d    { top: 0; }       /* glyph aligned to card top  -> top half shows */
+  .card .bottom .d { bottom: 0; }    /* glyph aligned to card bot  -> bottom half shows */
+
+  /* animated flaps */
+  .card .flap.top    { top: 0;    transform-origin: 50% 100%; transform: rotateX(0deg);   z-index: 2; }
+  .card .flap.bottom { bottom: 0; transform-origin: 50% 0%;   transform: rotateX(90deg);  z-index: 2; }
+  .card .flap.top    { border-radius: var(--radius) var(--radius) 0 0; background: var(--card-top);    border-bottom: 1px solid var(--split); }
+  .card .flap.bottom { border-radius: 0 0 var(--radius) var(--radius); background: var(--card-bottom); }
+  .card .flap.top.go    { animation: foldTop .28s ease-in forwards; }
+  .card .flap.bottom.go { animation: foldBottom .28s ease-out .28s forwards; }
+  @keyframes foldTop    { from { transform: rotateX(0deg); }  to { transform: rotateX(-90deg); } }
+  @keyframes foldBottom { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
+
+  /* ---- single wide hour card (12h) + AM/PM badge on it ---- */
+  .card.wide { width: var(--cw2); }
+  .card .ampm { position: absolute; top: 6%; left: 8%; z-index: 5; pointer-events: none;
+    font-size: clamp(10px, 3.4vh, 40px); font-weight: 800; letter-spacing: .06em; color: var(--accent); text-shadow: var(--digit-glow); }
+  /* ---- date / weekday, top-right corner ---- */
+  #corner { position: fixed; top: clamp(8px, 3vh, 30px); right: clamp(12px, 3vw, 44px); text-align: right; line-height: 1.12; }
+  #corner .cdate { display: block; font-size: clamp(13px, 4vh, 48px); color: var(--digit); text-shadow: var(--digit-glow); font-weight: 600; letter-spacing: .04em; }
+  #corner .cdow  { display: block; font-size: clamp(12px, 3.4vh, 40px); color: var(--digit); text-shadow: var(--digit-glow); font-weight: 700; letter-spacing: .18em; }
+
+  /* ---- settings ---- */
+  #gear { position: fixed; top: 14px; right: 16px; width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--label);
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); cursor: pointer; opacity: .35; transition: opacity .15s; }
+  #gear:hover { opacity: 1; }
+  #panel { position: fixed; top: 60px; right: 16px; width: 230px; padding: 14px; border-radius: 12px; display: none;
+    background: #0c1016ee; border: 1px solid #243246; color: #dbe5f0; font-size: 14px; }
+  #panel.open { display: block; }
+  #panel h4 { margin: 0 0 10px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #6f8298; }
+  #panel .row { display: flex; gap: 8px; margin: 8px 0; align-items: center; }
+  #panel .seg { display: flex; flex: 1; border: 1px solid #2a3a4e; border-radius: 8px; overflow: hidden; }
+  #panel .seg button { flex: 1; background: #131c28; color: #dbe5f0; border: 0; padding: 8px; cursor: pointer; font-size: 13px; }
+  #panel .seg button.on { background: #1e6fd0; }
+  #panel label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; }
+</style>
+</head>
+<body>
+  <div id="clock"></div>
+  <div id="corner"></div>
+
+  <div id="gear" title="Settings">⚙</div>
+  <div id="panel">
+    <h4>Clock</h4>
+    <div class="row"><span style="flex:1">Mode</span>
+      <div class="seg"><button data-set="mode" data-val="24">24h</button><button data-set="mode" data-val="12">12h</button></div></div>
+    <div class="row"><span style="flex:1">Theme</span>
+      <div class="seg"><button data-set="theme" data-val="dark">Dark</button><button data-set="theme" data-val="classic">Classic</button></div></div>
+    <div class="row"><label><input type="checkbox" data-toggle="seconds"> Show seconds</label></div>
+    <div class="row"><label><input type="checkbox" data-toggle="date"> Show date &amp; day</label></div>
+  </div>
+
+<script>
+  'use strict';
+  const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const $ = sel => document.querySelector(sel);
+
+  // ---- settings (localStorage + URL params) ----
+  const defaults = { mode: '24', theme: 'dark', seconds: false, date: true };
+  // Read params from the full href — robust for file:// (where location.search is often empty
+  // in an Electron webview). Accepts both ?query and #hash forms.
+  function readParams() {
+    const out = {};
+    try {
+      const u = new URL(location.href);
+      u.searchParams.forEach((v, k) => { out[k] = v; });
+      if (u.hash.length > 1) new URLSearchParams(u.hash.slice(1)).forEach((v, k) => { out[k] = v; });
+    } catch (e) {}
+    return out;
+  }
+  function load() {
+    let s = { ...defaults };
+    try { Object.assign(s, JSON.parse(localStorage.getItem('flipclock') || '{}')); } catch (e) {}
+    const p = readParams();
+    if ('mode' in p) s.mode = p.mode === '12' ? '12' : '24';
+    if ('theme' in p) s.theme = p.theme === 'classic' ? 'classic' : 'dark';
+    if ('seconds' in p) s.seconds = p.seconds === '1' || p.seconds === 'true';
+    if ('date' in p) s.date = !(p.date === '0' || p.date === 'false');
+    return s;
+  }
+  function save() { try { localStorage.setItem('flipclock', JSON.stringify(settings)); } catch (e) {} }
+  let settings = load();
+
+  // ---- sizing: cards scale to viewport; smaller when seconds shown ----
+  function applySizing() {
+    const r = document.documentElement.style;
+    const ch = settings.seconds ? 50 : 64;          // card height in vh
+    r.setProperty('--ch', ch + 'vh');
+    r.setProperty('--cw', (ch * 0.66) + 'vh');
+    r.setProperty('--cw2', (ch * 1.3) + 'vh');     // wider single hour card (12h)
+    r.setProperty('--fs', (ch * 0.92) + 'vh');
+  }
+
+  // ---- build the DOM ----
+  const clock = $('#clock');
+  let cards = {};                                    // id -> card element
+  function card(id) {
+    const c = document.createElement('div'); c.className = 'card'; c.dataset.v = '';
+    c.innerHTML = '<div class="half top"><span class="d"></span></div>'
+                + '<div class="half bottom"><span class="d"></span></div>'
+                + '<div class="flap top"><span class="d"></span></div>'
+                + '<div class="flap bottom"><span class="d"></span></div>';
+    cards[id] = c; return c;
+  }
+  function group(ids) { const g = document.createElement('div'); g.className = 'group'; ids.forEach(id => g.appendChild(card(id))); return g; }
+  function sep() { const s = document.createElement('div'); s.className = 'sep'; s.innerHTML = '<i></i><i></i>'; return s; }
+
+  function build() {
+    document.body.classList.toggle('classic', settings.theme === 'classic');
+    applySizing();
+    cards = {}; clock.innerHTML = '';
+    if (settings.mode === '12') {                              // one wide hour card with an AM/PM badge
+      const g = document.createElement('div'); g.className = 'group';
+      const hc = card('hh'); hc.classList.add('wide');
+      const ap = document.createElement('div'); ap.className = 'ampm'; ap.id = 'ampm'; hc.appendChild(ap);
+      g.appendChild(hc); clock.appendChild(g);
+    } else {                                                    // two hour cards (00-23), no AM/PM
+      clock.appendChild(group(['h0', 'h1']));
+    }
+    clock.appendChild(sep());
+    clock.appendChild(group(['m0', 'm1']));
+    if (settings.seconds) { clock.appendChild(sep()); clock.appendChild(group(['s0', 's1'])); }
+    const corner = document.getElementById('corner');
+    corner.style.display = settings.date ? 'block' : 'none';
+    corner.innerHTML = settings.date ? '<span class="cdate" id="date"></span><span class="cdow" id="dow"></span>' : '';
+    for (const k in cards) cards[k].dataset.v = '';           // force a fresh first paint
+    tick(true);
+  }
+
+  // ---- the flip ----
+  function setCard(id, val) {
+    const c = cards[id]; if (!c) return;
+    val = String(val);
+    if (c.dataset.v === val) return;
+    const cur = c.dataset.v;
+    c.dataset.v = val;
+    const topD = c.querySelector('.half.top .d'), botD = c.querySelector('.half.bottom .d');
+    const fTop = c.querySelector('.flap.top'), fBot = c.querySelector('.flap.bottom');
+    const fTopD = fTop.querySelector('.d'), fBotD = fBot.querySelector('.d');
+    if (cur === '') {                                                              // first paint: no animation
+      topD.textContent = val; botD.textContent = val;
+      fTopD.textContent = val; fBotD.textContent = val;   // the idle top flap sits over the static top — seed it so it isn't blank
+      return;
+    }
+    fTopD.textContent = cur;        // folding panel shows the old digit (top half)
+    fBotD.textContent = val;        // unfolding panel reveals the new digit (bottom half)
+    topD.textContent = val;         // static top is already the new digit, hidden behind the fold
+    botD.textContent = cur;         // static bottom still old until the unfold covers it
+    fTop.classList.remove('go'); fBot.classList.remove('go');
+    void c.offsetWidth;             // reflow so the animation restarts
+    fTop.classList.add('go'); fBot.classList.add('go');
+    fBot.addEventListener('animationend', () => { botD.textContent = val; }, { once: true });
+  }
+
+  function tick(force) {
+    const now = new Date();
+    const h = now.getHours();
+    if (settings.mode === '12') {
+      const ap = $('#ampm'); if (ap) ap.textContent = h < 12 ? 'AM' : 'PM';
+      setCard('hh', String(h % 12 || 12));         // single hour card, 1-12 (no leading zero)
+    } else {
+      const hh = String(h).padStart(2, '0');
+      setCard('h0', hh[0]); setCard('h1', hh[1]);   // two zero-padded hour cards
+    }
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    setCard('m0', mm[0]); setCard('m1', mm[1]);
+    if (settings.seconds) { const ss = String(now.getSeconds()).padStart(2, '0'); setCard('s0', ss[0]); setCard('s1', ss[1]); }
+    if (settings.date) {
+      const d = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+      const de = $('#date'), we = $('#dow');
+      if (de) de.textContent = d;
+      if (we) we.textContent = DOW[now.getDay()];
+    }
+  }
+
+  // ---- settings UI ----
+  function syncPanel() {
+    document.querySelectorAll('[data-set]').forEach(b => b.classList.toggle('on', settings[b.dataset.set] === b.dataset.val));
+    document.querySelectorAll('[data-toggle]').forEach(c => c.checked = !!settings[c.dataset.toggle]);
+  }
+  $('#gear').onclick = () => $('#panel').classList.toggle('open');
+  document.querySelectorAll('[data-set]').forEach(b => b.onclick = () => { settings[b.dataset.set] = b.dataset.val; save(); build(); syncPanel(); });
+  document.querySelectorAll('[data-toggle]').forEach(c => c.onchange = () => { settings[c.dataset.toggle] = c.checked; save(); build(); syncPanel(); });
+
+  build(); syncPanel();
+  window.addEventListener('hashchange', () => { settings = load(); build(); syncPanel(); });  // re-apply when options change
+  setInterval(tick, 250);
+</script>
+</body>
+</html>
