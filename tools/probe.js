@@ -1,4 +1,10 @@
 'use strict';
+/*
+ * PolyForm Noncommercial 1.0.0 — see ../src/LICENSE.
+ * This standalone script embeds the DK-QUAKE / ARIS-68 protocol (frame format,
+ * opcodes, parse) reverse-engineered from DK-Suite V0.4.35 — the vendor's
+ * restricted-for-commercial component. Noncommercial use only.
+ */
 // Live protocol probe for the ARIS-68 / Quake device.
 // Opens every HID collection of the device's VID/PIDs, prints raw hex + a best-effort
 // decode using the reverse-engineered protocol. Interact with the device to validate.

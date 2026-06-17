@@ -1,4 +1,10 @@
 'use strict';
+/*
+ * PolyForm Noncommercial 1.0.0 — see ../src/LICENSE.
+ * This standalone script embeds the DK-QUAKE / ARIS-68 protocol (frame format,
+ * opcodes, parse) reverse-engineered from DK-Suite V0.4.35 — the vendor's
+ * restricted-for-commercial component. Noncommercial use only.
+ */
 // Write-path test: send safe QUERY short-commands to the control interface and read replies.
 const HID = require('node-hid');
 

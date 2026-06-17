@@ -8,23 +8,26 @@ MIT (see ./LICENSE)
 All original work in this repository, including:
   - app/            the Electron launcher: multi-grid panel, touch/knob handling,
                     volume + grid-selector logic, and the PC grid editor
-  - tools/          standalone HID probe / write-test scripts
   - everything not listed under PolyForm below
 
 PolyForm Noncommercial 1.0.0 (see ./src/LICENSE)
 ------------------------------------------------
-  - src/Aris68Connector.js   the device driver
+Everything that embeds the reverse-engineered device protocol:
+  - src/Aris68Connector.js    the device driver
   - docs/DEVICE_PROTOCOL.md   the protocol specification
+  - tools/probe.js            standalone HID probe (inlines the protocol parse)
+  - tools/writetest.js        standalone write-path test (inlines the frame format)
 
 Why the split
 -------------
 src/Aris68Connector.js encodes the DK-QUAKE / ARIS-68 device communication
 protocol (HID interface IDs, frame format, opcodes, checksum, and the parse
-logic). That protocol was reverse-engineered from DK-Suite V0.4.35. The device
+logic). The two tools/ scripts each embed their own inline copy of that same
+protocol logic. It was all reverse-engineered from DK-Suite V0.4.35. The device
 vendor described the communication protocol as a restricted-for-commercial
 component, with non-commercial use permitted. To respect that without betting on
-how it interacts with the upstream Apache-2.0 release, the driver and its
-protocol notes are released for NONCOMMERCIAL USE ONLY. This may be relaxed to a
+how it interacts with the upstream Apache-2.0 release, every file that carries
+the protocol is released for NONCOMMERCIAL USE ONLY. This may be relaxed to a
 permissive license if explicit written commercial permission is obtained from
 the protocol holders.
 

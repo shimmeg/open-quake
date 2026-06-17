@@ -38,12 +38,12 @@ doesn't wrap it.
 ```
 src/Aris68Connector.js   the HID driver (events out, commands in)   [PolyForm NC]
 docs/DEVICE_PROTOCOL.md   reverse-engineered protocol spec           [PolyForm NC]
+tools/                    standalone HID probe / write-test scripts  [PolyForm NC]
 app/                      the Electron launcher + PC grid editor     [MIT]
   main.js                 host: windows, IPC, launch/volume/config
   index.html              the on-panel grid UI
   config.html             the PC grid editor
   config.default.json     seed config (copied to config.json on first run)
-tools/                    standalone HID probe / write-test scripts  [MIT]
 ```
 
 ## Build & run (Windows)
@@ -70,11 +70,12 @@ touch and knob input.
 
 Split-licensed — see **[NOTICE](NOTICE)**:
 
-- **MIT** ([LICENSE](LICENSE)) — the launcher, editor, and tools (original work).
-- **PolyForm Noncommercial 1.0.0** ([src/LICENSE](src/LICENSE)) — the driver and
-  protocol notes, which encode a protocol reverse-engineered from DK-Suite
-  V0.4.35. The vendor described the comm protocol as restricted for commercial
-  use; this part is **non-commercial only** unless you obtain written commercial
+- **MIT** ([LICENSE](LICENSE)) — the launcher and editor (`app/`), original work.
+- **PolyForm Noncommercial 1.0.0** ([src/LICENSE](src/LICENSE)) — every file that
+  embeds the reverse-engineered protocol: the driver (`src/Aris68Connector.js`),
+  the protocol notes (`docs/DEVICE_PROTOCOL.md`), and the two `tools/` scripts.
+  The vendor described the comm protocol as restricted for commercial use; these
+  files are **non-commercial only** unless you obtain written commercial
   permission from the protocol holders.
 
 No vendor code, binaries, or API keys are included in this repository.

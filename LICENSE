@@ -23,6 +23,7 @@ SOFTWARE.
 ---
 
 NOTE: This MIT license covers all original work in this repository EXCEPT the
-device-protocol driver `src/Aris68Connector.js` and the protocol notes in
-`docs/DEVICE_PROTOCOL.md`, which are licensed under PolyForm Noncommercial
-1.0.0 (see `src/LICENSE`). See `NOTICE` for the full breakdown.
+files that embed the reverse-engineered device protocol — `src/Aris68Connector.js`,
+`docs/DEVICE_PROTOCOL.md`, `tools/probe.js`, and `tools/writetest.js` — which are
+licensed under PolyForm Noncommercial 1.0.0 (see `src/LICENSE`). See `NOTICE` for
+the full breakdown.
