@@ -44,8 +44,8 @@ Grab a build from the **[Releases](https://github.com/TeeJS/open-quake/releases)
 - **`open-quake-<version>-portable.exe`** — run directly, no install.
 - **`open-quake-<version>-setup.exe`** — installer (Start-menu shortcut + uninstaller).
 
-The exe isn't code-signed, so Windows SmartScreen warns on first launch — click
-**More info → Run anyway**. Plug in the DK-QUAKE, then launch; config is stored in
+The exe is **code-signed** via Azure Trusted Signing (publisher *Thomas Schmitz*), so there's
+no "unknown publisher" warning. Plug in the DK-QUAKE, then launch; config is stored in
 `%APPDATA%\open-quake`. (Linux/macOS builds would need platform-specific launch/volume
 work — not done yet.)
 
