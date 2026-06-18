@@ -210,6 +210,18 @@ function createTray() {
   tray.on('click', () => openConfigWindow());
 }
 
+// Single-instance lock — a 2nd launch must not spawn a rival panel window (it fights the running
+// one over the device display → a white panel). Bail out; the running instance re-homes its panel.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);                                           // a copy already runs — force-exit now; this instance inits nothing
+} else {
+app.on('second-instance', () => {
+  try { dev.screenOn(); } catch (e) {}
+  placePanel();
+  if (configWin && !configWin.isDestroyed()) { configWin.show(); configWin.focus(); }
+  else openConfigWindow();
+});
+
 app.whenReady().then(() => {
   try { powerSaveBlocker.start('prevent-display-sleep'); } catch (e) {}
   createTray();
@@ -311,4 +323,5 @@ app.whenReady().then(() => {
   screen.on('display-removed', () => dev.screenOn());
   screen.on('display-metrics-changed', () => setTimeout(placePanel, 500));
 });
+}
 app.on('window-all-closed', () => {});
