@@ -1,6 +1,6 @@
 {
   "name": "open-quake",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Open driver + multi-grid touchscreen launcher for the DK-QUAKE / ARIS-68 touchscreen-and-knob macro device.",
   "main": "app/main.js",
@@ -10,15 +10,17 @@
   },
   "scripts": {
     "start": "electron .",
+    "start:win": "node build-smtc.js && electron .",
     "security:baseline": "node scripts/security/check-open-quake-security.mjs",
     "security:actions": "node scripts/security/test-action-runner.mjs",
     "security:macos": "node scripts/security/check-macos-build-config.mjs",
     "security:docs": "node scripts/security/check-macos-docs.mjs",
     "rebuild": "electron-rebuild -f",
+    "build:smtc": "node build-smtc.js",
     "dist": "electron-builder --mac",
     "dist:mac": "electron-builder --mac",
     "dist:mac:dir": "electron-builder --mac dir",
-    "dist:win": "electron-builder --win"
+    "dist:win": "node build-smtc.js && electron-builder --win"
   },
   "license": "SEE LICENSE IN LICENSE",
   "keywords": [
@@ -51,12 +53,17 @@
       "!app/config.json",
       "!docs/**",
       "!tools/**",
+      "!native/**",
+      "!build-smtc.js",
       "!sign.js",
+      "!afterpack.js",
       "!.signing/**"
     ],
     "npmRebuild": false,
+    "afterPack": "./afterpack.js",
     "asarUnpack": [
       "apps/**/*",
+      "app/native/**",
       "**/*.node"
     ],
     "mac": {

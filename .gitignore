@@ -27,3 +27,6 @@ Thumbs.db
 
 # scratch handoff / homework notes (kept local, not part of the repo)
 *-HANDOFF.md
+
+# compiled SMTC album-art helper (built from native/smtc-art.cs by build-smtc.js; not a source artifact)
+app/native/*.exe

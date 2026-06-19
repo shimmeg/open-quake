@@ -6,14 +6,16 @@
  * App-agnostic: whatever app feeds the OS media flyout (Spotify, browser media, Groove, …) shows up
  * here — title / artist / album / playback status. No admin, no native dependency.
  *
- * NOTE: album art is intentionally NOT included. The SMTC thumbnail is a WinRT stream that Windows
- * PowerShell 5.1 returns as an unprojected COM object (can't read its bytes), so artwork needs a small
- * bundled .NET helper — a planned follow-up. Transport control is handled in main.js via media keys.
+ * Album art: the SMTC thumbnail is a WinRT stream Windows PowerShell 5.1 can't read (it returns an
+ * unprojected COM object), so a tiny bundled .NET helper (native/smtc-art.cs -> app/native/smtc-art.exe)
+ * reads it natively; we run it once per track and cache the result. Transport control is in main.js.
  *
  * The PowerShell is passed as -EncodedCommand (base64 UTF-16LE) so its quotes/backticks can't be
  * mangled by Windows arg-splitting, with -InputFormat None so it never blocks on the piped stdin.
  */
 const { execFile } = require('child_process');
+const { net } = require('electron');
+const path = require('path');
 
 const SMTC_PS = [
   "Add-Type -AssemblyName System.Runtime.WindowsRuntime;",
@@ -28,6 +30,59 @@ const SMTC_B64 = Buffer.from(SMTC_PS, 'utf16le').toString('base64');
 
 const STALE_MS = 12000;   // if no session refresh for this long, report null
 let snapshot = null, snapTs = 0, timer = null, running = false, busy = false;
+
+// Album art via the bundled .NET helper. Path resolves dev vs packaged (asar.unpacked) like main.js.
+const ART_EXE = path.join(__dirname, 'native', 'smtc-art.exe').replace('app.asar', 'app.asar.unpacked');
+const artCache = {};      // trackKey -> dataURL | null  (fetched or failed; never re-fetched)
+let artBusy = false;
+function trackKey(s) { return s ? (s.title || '') + '\t' + (s.artist || '') : ''; }
+function artMime(b64) {   // sniff the format from the base64 head so the data: URL declares the right type
+  if (b64.startsWith('iVBOR')) return 'image/png';
+  if (b64.startsWith('/9j/')) return 'image/jpeg';
+  if (b64.startsWith('R0lGOD')) return 'image/gif';
+  if (b64.startsWith('UklGR')) return 'image/webp';
+  if (b64.startsWith('Qk')) return 'image/bmp';
+  return 'image/png';
+}
+function fetchArt(key, track) {
+  if (artBusy || (key in artCache)) return;   // one fetch at a time; never re-fetch a known track
+  artBusy = true;
+  execFile(ART_EXE, [], { windowsHide: true, timeout: 4000, maxBuffer: 16 * 1024 * 1024 }, (err, stdout) => {
+    const b64 = (!err && stdout) ? String(stdout).trim() : '';
+    if (b64) { artCache[key] = 'data:' + artMime(b64) + ';base64,' + b64; artBusy = false; return; }
+    lookupArtOnline(track, url => { artCache[key] = url || null; artBusy = false; });   // helper had no art -> online fallback
+  });
+}
+// Fallback cover art via Apple's iTunes Search API (no key) when the SMTC thumbnail is unavailable —
+// the helper is missing/blocked, or the player reports a track but ships no embedded art. Sends only the
+// artist + album/title to Apple, and only for tracks the helper couldn't cover.
+function lookupArtOnline(track, cb) {
+  const artist = (track && track.artist) || '';
+  const what = (track && (track.album || track.title)) || '';
+  const term = (artist + ' ' + what).trim();
+  if (!term) return cb(null);
+  const url = 'https://itunes.apple.com/search?limit=1&media=music&entity='
+    + ((track && track.album) ? 'album' : 'song') + '&term=' + encodeURIComponent(term);
+  let req, to, done = false;
+  const finish = v => { if (done) return; done = true; if (to) clearTimeout(to); cb(v); };
+  try { req = net.request(url); } catch (e) { return cb(null); }
+  to = setTimeout(() => { try { req.abort(); } catch (e) {} finish(null); }, 4000);
+  const chunks = [];
+  req.on('error', () => finish(null));
+  req.on('response', resp => {
+    if (resp.statusCode !== 200) { resp.resume(); return finish(null); }
+    resp.on('data', d => chunks.push(d));
+    resp.on('error', () => finish(null));
+    resp.on('end', () => {
+      try {
+        const j = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        const a = j.results && j.results[0] && j.results[0].artworkUrl100;
+        finish(a ? a.replace('100x100bb', '600x600bb') : null);   // bump 100px thumb to 600px
+      } catch (e) { finish(null); }
+    });
+  });
+  req.end();
+}
 
 function poll() {
   return new Promise(resolve => {
@@ -45,12 +100,16 @@ function poll() {
 async function tick() {
   if (busy || !running) return;     // busy guard: don't stack PowerShell spawns
   busy = true;
-  try { const r = await poll(); if (r) { snapshot = r; snapTs = Date.now(); } } catch (e) {}
+  try { const r = await poll(); if (r) { snapshot = r; snapTs = Date.now(); if (running) fetchArt(trackKey(r), r); } } catch (e) {}
   finally { busy = false; }
 }
 
 function start() { if (running) return; running = true; tick(); timer = setInterval(tick, 2500); }
-function stop() { running = false; if (timer) clearInterval(timer); timer = null; }
-function getSnapshot() { return (snapTs && Date.now() - snapTs < STALE_MS) ? snapshot : null; }   // null => "nothing playing"
+function stop() { running = false; if (timer) clearInterval(timer); timer = null; artBusy = false; for (const k in artCache) delete artCache[k]; }
+function getSnapshot() {                                                    // null => "nothing playing"
+  if (!(snapTs && Date.now() - snapTs < STALE_MS)) return null;
+  const k = trackKey(snapshot);
+  return Object.assign({}, snapshot, { art: (k in artCache) ? artCache[k] : null });
+}
 
 module.exports = { start, stop, getSnapshot };

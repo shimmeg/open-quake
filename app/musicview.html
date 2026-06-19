@@ -14,7 +14,7 @@
   .mid { flex: 1.45; min-width: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 28px; padding: 30px 46px; }
   .grid-col { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
 
-  /* album art (placeholder until the SMTC .NET art helper lands) */
+  /* album art: the 🎵 note shows until the SMTC .NET helper supplies cover art (then artImg covers it) */
   .art { height: 100%; aspect-ratio: 1/1; border-radius: 18px; position: relative; overflow: hidden;
     background: linear-gradient(160deg, #11202e, #0a1119); border: 1px solid #1a2738;
     display: flex; align-items: center; justify-content: center; }
@@ -86,10 +86,15 @@
   $('bStop').onclick = function(){ media('stop'); };
   $('bPlay').onclick = function(){ media('playpause'); var p = $('bPlay').innerHTML === ICON.pause; $('bPlay').innerHTML = p ? ICON.play : ICON.pause; };
 
+  function setArt(url){
+    var img = $('artImg');
+    if (url){ if (img.getAttribute('src') !== url) img.src = url; img.style.display = 'block'; }   // covers the 🎵 placeholder
+    else { img.removeAttribute('src'); img.style.display = 'none'; }                                // no art -> show the 🎵 placeholder
+  }
   function renderNP(s){
     if (!s || !s.title){
       $('mTitle').textContent = 'Nothing playing'; $('mArtist').textContent = '—';
-      $('mStatus').textContent = '—'; $('mApp').textContent = ''; $('bPlay').innerHTML = ICON.play; return;
+      $('mStatus').textContent = '—'; $('mApp').textContent = ''; $('bPlay').innerHTML = ICON.play; setArt(null); return;
     }
     $('mTitle').textContent = s.title;
     $('mArtist').textContent = s.artist || '—';
@@ -97,6 +102,7 @@
     $('bPlay').innerHTML = (s.status === 'Playing') ? ICON.pause : ICON.play;
     var app = (s.app || '').replace(/\._crx_.*/, '').replace(/!.*/, '').replace(/\.exe$/i, '');
     $('mApp').textContent = app ? ('· ' + app) : '';
+    setArt(s.art);
   }
 
   function renderGrid(d){

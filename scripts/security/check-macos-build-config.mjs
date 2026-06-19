@@ -15,7 +15,9 @@ function pngSize(file) {
 assert.equal(pkg.scripts.dist, 'electron-builder --mac', '`npm run dist` must build the primary macOS artifact');
 assert.equal(pkg.scripts['dist:mac'], 'electron-builder --mac', '`dist:mac` must build macOS artifacts');
 assert.equal(pkg.scripts['dist:mac:dir'], 'electron-builder --mac dir', '`dist:mac:dir` must build an unpacked macOS app');
-assert.equal(pkg.scripts['dist:win'], 'electron-builder --win', '`dist:win` must remain available for legacy Windows builds');
+assert.equal(pkg.scripts['build:smtc'], 'node build-smtc.js', '`build:smtc` must be available for the Windows album-art helper');
+assert.equal(pkg.scripts['start:win'], 'node build-smtc.js && electron .', '`start:win` must prebuild the Windows album-art helper');
+assert.equal(pkg.scripts['dist:win'], 'node build-smtc.js && electron-builder --win', '`dist:win` must prebuild the Windows album-art helper');
 
 assert.ok(build.mac, 'electron-builder must define a mac target');
 assert.deepEqual([...build.mac.target].sort(), ['dmg', 'zip'], 'mac target must produce dmg and zip');
