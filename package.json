@@ -6,12 +6,12 @@
   "main": "app/main.js",
   "author": "TeeJS",
   "engines": {
-    "node": ">=18 <25"
+    "node": ">=22.12 <25"
   },
   "scripts": {
     "start": "electron .",
     "security:baseline": "node scripts/security/check-open-quake-security.mjs",
-    "rebuild": "electron-rebuild -v 23.0.0 -f",
+    "rebuild": "electron-rebuild -f",
     "dist": "electron-builder --win"
   },
   "license": "SEE LICENSE IN LICENSE",
@@ -26,13 +26,13 @@
   ],
   "dependencies": {
     "node-hid": "^3.3.0",
-    "robotjs": "^0.6.0",
+    "robotjs": "^0.7.1",
     "systeminformation": "^5.31.7"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.0",
-    "electron": "^23.0.0",
-    "electron-builder": "^24.13.3"
+    "@electron/rebuild": "^4.0.4",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.teejs.openquake",

@@ -19,21 +19,20 @@ Full reverse-engineered protocol: [DEVICE_PROTOCOL.md](DEVICE_PROTOCOL.md).
 
 ## Build & run (Windows)
 
-> **Use a Node LTS — 20, 22, or 24** (built and verified on **24**). **Don't use Node 25/26.**
-> The native-rebuild toolchain (`@electron/rebuild`) bundles an older `yargs` that won't load
-> under Node 25/26 — `npm run rebuild` dies with *"ReferenceError: require is not defined in ES
-> module scope."* If you hit that, `node --version`, switch to an LTS, delete `node_modules`, and
-> reinstall. (`package.json` declares `"engines": node >=18 <25`; an `.nvmrc` pins 24.)
+> **Use Node 24 LTS** (pinned by `.nvmrc`). **Don't use Node 25/26 for release builds.**
+> The native modules are old and still need a conservative Node/native toolchain even though
+> Electron itself is newer. If native rebuild fails, `node --version`, switch to Node 24,
+> delete `node_modules`, and reinstall. (`package.json` declares `"engines": node >=22.12 <25`.)
 
 The native modules (`node-hid`, `robotjs`) must be built for this app's Electron
-ABI (**Electron 23**), *not* your host Node. A plain `npm install` fails —
-`robotjs` (0.6.0) can't compile against modern Node. So install without scripts,
-fetch the Electron binary, then rebuild the natives against Electron 23:
+ABI (**Electron 42**), *not* your host Node. A plain `npm install` can fail if
+native scripts target host Node instead of Electron. So install without scripts,
+fetch the Electron binary, then rebuild the natives against the package Electron:
 
 ```powershell
 npm install --ignore-scripts            # packages on disk, no native build
-node node_modules/electron/install.js   # fetch the Electron 23 binary
-npm run rebuild                          # electron-rebuild -v 23.0.0 -f  (node-hid + robotjs)
+node node_modules/electron/install.js   # fetch the Electron binary
+npm run rebuild                          # electron-rebuild -f  (node-hid + robotjs)
 npm start
 ```
 
