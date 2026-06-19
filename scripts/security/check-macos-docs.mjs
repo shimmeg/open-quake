@@ -12,6 +12,8 @@ const settings = read('docs/settings.md');
 const docsIndex = read('docs/README.md');
 const hardeningPath = 'docs/security/open-quake-hardening.md';
 const hardening = fs.existsSync(hardeningPath) ? read(hardeningPath) : '';
+const releasePath = 'docs/release-readiness.md';
+const release = fs.existsSync(releasePath) ? read(releasePath) : '';
 
 assert.match(readme, /Run locally on macOS/, 'README must document local macOS source runs');
 assert.match(readme, /security-hardening, macOS-focused fork of\s+\[TeeJS\/open-quake\]/, 'README must clearly state this repository is a fork');
@@ -49,6 +51,7 @@ assert.match(settings, /Library\/Application Support\/open-quake/, 'settings doc
 assert.doesNotMatch(settings, /%APPDATA%\\open-quake/, 'settings docs must not use Windows config path as the primary path');
 
 assert.match(docsIndex, /open-quake-hardening\.md/, 'docs index must link the security hardening guide');
+assert.match(docsIndex, /release-readiness\.md/, 'docs index must link the release readiness checklist');
 assert.ok(hardening, 'docs must include docs/security/open-quake-hardening.md');
 assert.match(hardening, /Threat model/i, 'hardening guide must include a threat model');
 assert.match(hardening, /Local secrets/i, 'hardening guide must describe local secrets');
@@ -56,5 +59,14 @@ assert.match(hardening, /Shell command macro risk/i, 'hardening guide must descr
 assert.match(hardening, /Dashboard permissions/i, 'hardening guide must describe dashboard permissions');
 assert.match(hardening, /Signing and release verification/i, 'hardening guide must describe signing and release verification');
 assert.match(hardening, /PolyForm Noncommercial/i, 'hardening guide must include the protocol license warning');
+
+assert.ok(release, 'docs must include docs/release-readiness.md');
+assert.match(release, /CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac:dir/, 'release checklist must document unsigned macOS dir build verification');
+assert.match(release, /npm run dist:mac/, 'release checklist must mention signed macOS release build command');
+assert.match(release, /signing and notarization credentials/i, 'release checklist must gate dist:mac on signing/notarization credentials');
+assert.match(release, /SHA256/i, 'release checklist must require SHA256 checksums');
+assert.match(release, /signed or annotated tags/i, 'release checklist must require signed or annotated tags');
+assert.match(release, /Task 7\/8/i, 'release checklist must gate publishing on Task 7/8 hardening');
+assert.match(release, /smoke/i, 'release checklist must require smoke status before publishing');
 
 console.log('macOS docs checks passed.');
