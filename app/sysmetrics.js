@@ -174,7 +174,7 @@ async function start() {
   makeLoop(1000, pollFast);
   makeLoop(3000, pollMedium);
   makeLoop(5000, pollSlow);
-  gpuMode = await detectNvidia();                    // for temp/mem; GPU LOAD is generic (works on all vendors)
+  if (gpuMode === 'unknown') gpuMode = await detectNvidia();   // detect once per process; cached across stop/start (re-opening SystemView won't re-probe nvidia-smi)
   if (running) makeLoop(3000, pollGpu);              // 3s: the CIM query takes ~2.4s, give it breathing room
 }
 

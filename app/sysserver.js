@@ -74,12 +74,21 @@ function start(opts) {
     try { chatHtml = fs.readFileSync(path.join(__dirname, 'chatview.html'), 'utf8'); } catch (e) {}
     try { chatJs = fs.readFileSync(path.join(__dirname, 'ChatWidget.js'), 'utf8'); } catch (e) {}
     try { chatCss = fs.readFileSync(path.join(__dirname, 'owui-widget.css'), 'utf8'); } catch (e) {}
-    metrics.start();
-    nowplaying.start();
+    // NB: the pollers are NOT started here. They're gated by which panel page is shown — main.js
+    // calls setActivePage() on every page switch so each poller runs only while its page is on screen.
     server = http.createServer((req, res) => { handler(req, res).catch(() => { try { res.writeHead(500); res.end(); } catch (e) {} }); });
     server.once('error', reject);
     server.listen(0, '127.0.0.1', () => resolve(server.address().port));
   });
+}
+
+// Run only the poller the visible page needs; stop the others. Called by main.js whenever the
+// active panel page changes. which: 'sysview' (metrics) | 'music' (now-playing) | null (neither).
+// start()/stop() are idempotent, so this is safe to call on every page push.
+function setActivePage(which) {
+  if (which === 'sysview') { metrics.start(); nowplaying.stop(); }
+  else if (which === 'music') { nowplaying.start(); metrics.stop(); }
+  else { metrics.stop(); nowplaying.stop(); }
 }
 
 function stop() {
@@ -88,4 +97,4 @@ function stop() {
   if (server) { try { server.close(); } catch (e) {} server = null; }
 }
 
-module.exports = { start, stop };
+module.exports = { start, stop, setActivePage };

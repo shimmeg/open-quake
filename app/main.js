@@ -134,9 +134,20 @@ function appPageUrl(page) {
 function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch (e) { console.log('config save error:', e.message); } }
 function activeGrid() { return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || { cols: 8, rows: 2, tiles: [] }; }
 function gridList() { return config.grids.map(g => ({ id: g.id, name: g.name })); }
+// Tell the local server which served page is on screen so it runs only that page's poller
+// (SystemView metrics / Music now-playing) and idles the rest — no background polling while hidden.
+function syncPollers(g) {
+  if (!sysserver) return;
+  const which = (g && g.id === 'sysview') ? 'sysview'
+    : (g && g.kind === 'app' && g.app === 'music') ? 'music'
+    : null;
+  try { sysserver.setActivePage(which); } catch (e) {}
+}
 async function pushToPanel() {
   if (panelWin && !panelWin.isDestroyed()) {
-    panelWin.webContents.send('grid', await resolveGridIcons(activeGrid()));
+    const g = activeGrid();
+    syncPollers(g);                                                // run only the poller the shown page needs (before the webview reloads, so it primes)
+    panelWin.webContents.send('grid', await resolveGridIcons(g));
     panelWin.webContents.send('gridList', { grids: gridList(), activeId: config.activeGridId });
     pushRotationState();
     if (!config.introShown) panelWin.webContents.send('intro');   // one-time "double-click the knob" overlay
