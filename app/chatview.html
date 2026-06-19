@@ -43,12 +43,29 @@
     <div class="big">Open WebUI needs setup</div>
     <div>Open this page in the editor and set your <b>Open WebUI URL</b> and <b>API key</b>.</div>
   </div>
+  <script>
+    window.openQuakeChatRuntimeConfig = {};
+    window.openQuakeChatConfig = async function () {
+      try {
+        var r = await fetch('/app-config?app=chat', { cache: 'no-store' });
+        if (!r.ok) return window.openQuakeChatRuntimeConfig;
+        var data = await r.json();
+        var opts = (data && data.options) || {};
+        window.openQuakeChatRuntimeConfig = {
+          endpoint: opts.endpoint || '',
+          apiKey: opts.api_key || '',
+          model: opts.model || ''
+        };
+      } catch (e) {
+        window.openQuakeChatRuntimeConfig = {};
+      }
+      return window.openQuakeChatRuntimeConfig;
+    };
+  </script>
   <script type="module">
     import ChatWidget, { mount } from './ChatWidget.js';
-    // The widget reads api_key / model / endpoint from the page URL's query string (this page is
-    // served over http, so the query survives — that's why it's a "served" app, not a file:// app).
-    const q = new URLSearchParams(location.search);
-    if (!q.get('api_key') && !q.get('endpoint')) {
+    const cfg = await window.openQuakeChatConfig();
+    if (!(cfg.apiKey && cfg.endpoint)) {
       document.getElementById('nokey').style.display = 'flex';
     }
     mount(ChatWidget, { target: document.getElementById('chat-widget') });
@@ -58,10 +75,10 @@
     // ---- push-to-talk: panel relays the knob HOLD here (window.pttStart / window.pttStop).
     // Record the mic while held -> POST to OWUI's local-Whisper transcription -> fill the input + send.
     (function () {
-      var q = new URLSearchParams(location.search);
-      var key = q.get('api_key') || '';
+      var cfg = window.openQuakeChatRuntimeConfig || {};
+      var key = cfg.apiKey || '';
       var sttUrl = '';
-      try { sttUrl = new URL(q.get('endpoint')).origin + '/api/v1/audio/transcriptions'; } catch (e) {}
+      try { sttUrl = new URL(cfg.endpoint).origin + '/api/v1/audio/transcriptions'; } catch (e) {}
       var rec = null, chunks = [], stream = null, recording = false, cue = null;
 
       function showCue(on) {

@@ -152,27 +152,41 @@ function loadApps() {
   catch (e) { console.log('apps manifest load error:', e.message); return []; }
 }
 // Build the file: URL for an app page, encoding its options as a #hash (file:// drops a ?query).
+function appOptionQuery(def, opts, include) {
+  return (def.options || []).map(o => {
+    if (include && !include(o)) return null;
+    let v = (o.key in opts) ? opts[o.key] : o.default;
+    if (v == null || v === '') return null;
+    if (o.type === 'bool') v = v ? '1' : '0';
+    return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
+  }).filter(Boolean).join('&');
+}
 function appPageUrl(page) {
   const def = loadApps().find(a => a.id === page.app);
   if (!def) return 'about:blank';
   if (def.served) {                                                          // served by the local server (live data, same-origin fetch, grid launch)
-    const opts = page.options || {};                                         // pass options as a ?query (http keeps query strings; widgets like OWUI read them)
-    const qs = (def.options || []).map(o => {
-      let v = (o.key in opts) ? opts[o.key] : o.default;
-      if (v == null || v === '') return null;
-      if (o.type === 'bool') v = v ? '1' : '0';
-      return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
-    }).filter(Boolean).join('&');
+    const opts = page.options || {};                                         // non-secret options only; secrets are served by /app-config
+    const qs = appOptionQuery(def, opts, o => o.type !== 'secret');
     return 'http://127.0.0.1:' + serverPort + '/' + def.id + (qs ? '?' + qs : '');
   }
   const file = path.join(APPS_DIR, def.file);
   const opts = page.options || {};
-  const hash = (def.options || []).map(o => {
-    let v = (o.key in opts) ? opts[o.key] : o.default;
-    if (o.type === 'bool') v = v ? '1' : '0';
-    return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
-  }).join('&');
+  const hash = appOptionQuery(def, opts, o => o.type !== 'secret');
   return pathToFileURL(file).href + (hash ? '#' + hash : '');
+}
+function activeServedAppConfig(appId) {
+  const g = activeGrid();
+  if (!(g && g.kind === 'app' && g.app === appId)) return null;
+  const def = loadApps().find(a => a.id === appId);
+  if (!(def && def.served)) return null;
+  const opts = g.options || {};
+  const options = {};
+  (def.options || []).forEach(o => {
+    let v = (o.key in opts) ? opts[o.key] : o.default;
+    if (o.type === 'bool') v = !!v;
+    options[o.key] = v == null ? '' : v;
+  });
+  return { app: appId, options };
 }
 function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch (e) { console.log('config save error:', e.message); } }
 function activeGrid() { return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || { cols: 8, rows: 2, tiles: [] }; }
@@ -432,7 +446,7 @@ app.whenReady().then(async () => {
   // Lazy-required so a metrics/load failure can never crash the rest of the app.
   try {
     sysserver = require('./sysserver');
-    serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles });
+    serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig });
     ensureSystemViewPage(serverPort); ensureMusicPage();
     console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
   } catch (e) { console.log('local panel services failed to start:', e.message); }

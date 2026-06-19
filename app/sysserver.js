@@ -23,7 +23,7 @@ const FALLBACK = '<!doctype html><meta charset="utf-8">'
   + '<body style="margin:0;background:#05080d;color:#9fb3c8;font:20px Segoe UI">page asset missing.</body>';
 const MEDIA_CMDS = { playpause: 1, next: 1, prev: 1, stop: 1 };
 
-let server = null, onMedia = null, onLaunch = null, getMusicTiles = null;
+let server = null, onMedia = null, onLaunch = null, getMusicTiles = null, getAppConfig = null;
 let sysHtml = FALLBACK, musicHtml = FALLBACK, chatHtml = FALLBACK, chatJs = '', chatCss = '';
 
 function html(res, body) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(body); }
@@ -39,6 +39,11 @@ async function handler(req, res) {
   if (url === '/chat') return html(res, chatHtml);
   if (url === '/ChatWidget.js') { res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(chatJs); }
   if (url === '/owui-widget.css') { res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(chatCss); }
+  if (url === '/app-config') {
+    const m = /[?&]app=([A-Za-z0-9_-]+)/.exec(full);
+    const cfg = (m && getAppConfig) ? getAppConfig(m[1]) : null;
+    return cfg ? json(res, cfg) : done(res, false);
+  }
   if (url === '/metrics') return json(res, metrics.getSnapshot());
   if (url === '/nowplaying') return json(res, nowplaying.getSnapshot());
   if (url === '/musictiles') {
@@ -61,12 +66,13 @@ async function handler(req, res) {
   res.writeHead(404); res.end();
 }
 
-// opts: { onMedia(cmd), onLaunch(i), getMusicTiles() } — all optional.
+// opts: { onMedia(cmd), onLaunch(i), getMusicTiles(), getAppConfig(appId) } — all optional.
 function start(opts) {
   opts = opts || {};
   onMedia = opts.onMedia || null;
   onLaunch = opts.onLaunch || null;
   getMusicTiles = opts.getMusicTiles || null;
+  getAppConfig = opts.getAppConfig || null;
   return new Promise((resolve, reject) => {
     if (server) return resolve(server.address().port);
     try { sysHtml = fs.readFileSync(path.join(__dirname, 'sysview.html'), 'utf8'); } catch (e) {}

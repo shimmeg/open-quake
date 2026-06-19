@@ -167,12 +167,19 @@ for (const [rel, regex] of queryReaders) {
   assertNoPattern(rel, regex, 'no-api-key-query-read', 'Open WebUI API key must not be read from URL query parameters');
 }
 
-assertNoPattern(
-  'app/main.js',
-  /return\s+encodeURIComponent\s*\(\s*o\.key\s*\)\s*\+\s*['"]=['"]\s*\+\s*encodeURIComponent\s*\(\s*v\s*\)/,
-  'no-secret-query-builder',
-  'app URL builder must not serialize every option, including secrets, into URLs',
-);
+const appPageUrl = mainFunctions.find((fn) => fn.name === 'appPageUrl');
+if (!appPageUrl) {
+  fail('no-secret-query-builder', 'app/main.js must keep appPageUrl explicit enough for secret URL checks');
+} else {
+  const source = main.slice(appPageUrl.start, appPageUrl.end + 1);
+  const safeCalls = source.match(/appOptionQuery\s*\(\s*def\s*,\s*opts\s*,\s*o\s*=>\s*o\.type\s*!==\s*['"]secret['"]\s*\)/g) || [];
+  if (safeCalls.length < 2) {
+    fail('no-secret-query-builder', `app/main.js:${lineNumber(main, appPageUrl.start)} appPageUrl must exclude secret app options from served query strings and file URL hashes`);
+  }
+  if (/appOptionQuery\s*\(\s*def\s*,\s*opts\s*\)/.test(source)) {
+    fail('no-secret-query-builder', `app/main.js:${lineNumber(main, appPageUrl.start)} appPageUrl must not serialize app options without a secret-exclusion filter`);
+  }
+}
 
 const sysserver = read('app/sysserver.js');
 if (!/server\.listen\s*\(\s*0\s*,\s*['"]127\.0\.0\.1['"]/.test(sysserver)) {

@@ -2415,12 +2415,11 @@ function Vs(e, t) {
     return k.parse(x);
   }
   Gn(() => {
-    console.log("ChatWidget onMount triggered. Attempting to read query parameters.");
     try {
-      const x = new URLSearchParams(window.location.search), T = x.get("api_key"), V = x.get("model"), K = x.get("endpoint");
-      T !== null && (u = T), V !== null && E(i, V, !0), K !== null && (a = K), console.log("Query parameters processed:", { apiKey: u, model: y(i), endpoint: a });
+      const x = window.openQuakeChatRuntimeConfig || {}, T = x.apiKey, V = x.model, K = x.endpoint;
+      T !== void 0 && (u = T), V !== void 0 && E(i, V, !0), K !== void 0 && (a = K);
     } catch (x) {
-      console.error("Error processing query parameters in onMount:", x);
+      console.error("Error processing runtime configuration in onMount:", x);
     }
   }), gr(() => {
     y(r).length && l && setTimeout(
