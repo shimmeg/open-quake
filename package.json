@@ -10,6 +10,7 @@
   },
   "scripts": {
     "start": "electron .",
+    "security:baseline": "node scripts/security/check-open-quake-security.mjs",
     "rebuild": "electron-rebuild -v 23.0.0 -f",
     "dist": "electron-builder --win"
   },
