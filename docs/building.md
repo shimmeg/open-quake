@@ -3,53 +3,77 @@
 ## How the hardware works
 
 The DK-QUAKE's screen is a standard external monitor (HDMI or USB-C DisplayPort
-alt-mode) recognized by Windows as a 480×1920 portrait display. A separate USB
-link handles touch and control/knob/mic interfaces. Video travels over the
-display cable; open-quake renders an Electron window onto that monitor, exactly
-as DK-Suite did. Unplug the display cable and the panel goes dark, but the USB
-side keeps working.
+alt-mode) recognized by macOS as a 480×1920 portrait display or a 1920×480
+landscape display. A separate USB link handles touch and control/knob/mic
+interfaces. Video travels over the display cable; open-quake renders an Electron
+window onto that monitor, exactly as DK-Suite did. Unplug the display cable and
+the panel goes dark, but the USB side keeps working.
 
 The USB side is two HID interfaces: a control interface (knob, mic/state,
 firmware, keep-alive) and a multi-touch interface. The panel ships dark and
 idle-blanks; the driver wakes it and sends a periodic keep-alive so it stays on.
-The on-board mic enumerates as a standard **"5- USB PnP Audio Device"** — any app
-can read it directly; `open-quake` doesn't wrap it.
+The on-board mic enumerates as a standard USB audio input; macOS microphone
+permission is required only when push-to-talk records audio for the Open WebUI
+chat page.
 
 Full reverse-engineered protocol: [DEVICE_PROTOCOL.md](DEVICE_PROTOCOL.md).
 
-## Build & run (Windows)
+## Build & run (macOS)
 
 > **Use Node 24 LTS** (pinned by `.nvmrc`). **Don't use Node 25/26 for release builds.**
-> The native modules are old and still need a conservative Node/native toolchain even though
-> Electron itself is newer. If native rebuild fails, `node --version`, switch to Node 24,
+> The native modules still need a conservative Node/native toolchain even though Electron
+> itself is newer. If native rebuild fails, check `node --version`, switch to Node 24,
 > delete `node_modules`, and reinstall. (`package.json` declares `"engines": node >=22.12 <25`.)
 
-The native modules (`node-hid`, `robotjs`) must be built for this app's Electron
-ABI (**Electron 42**), *not* your host Node. A plain `npm install` can fail if
-native scripts target host Node instead of Electron. So install without scripts,
-fetch the Electron binary, then rebuild the natives against the package Electron:
+Install Xcode Command Line Tools, then build the native modules (`node-hid`,
+`robotjs`) against this app's Electron ABI (**Electron 42**):
 
-```powershell
-npm install --ignore-scripts            # packages on disk, no native build
-node node_modules/electron/install.js   # fetch the Electron binary
-npm run rebuild                          # electron-rebuild -f  (node-hid + robotjs)
+```bash
+xcode-select --install
+npm install --ignore-scripts
+node node_modules/electron/install.js
+npm run rebuild
 npm start
 ```
 
-Building the natives on modern Windows needs Visual Studio 2022 Build Tools
-(Desktop C++ workload) and a Python with `distutils` (`pip install
-"setuptools<81"` on Python 3.12+). Set `GYP_MSVS_VERSION=2022` if node-gyp picks
-the wrong toolset.
+For a local unsigned macOS app bundle:
 
-Plug in the DK-QUAKE before `npm start`. The launcher finds the panel display,
-places a borderless window on it, wakes the backlight, and starts listening for
-touch and knob input.
+```bash
+CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac:dir
+```
 
-Set the DK-QUAKE's **display orientation to Landscape** in Windows (Settings →
-System → Display) so Windows treats it as a 1920×480 landscape display — that
-keeps the mouse and touch aligned with what you see. open-quake auto-rotates its
-render if you leave it portrait, but then a desktop mouse moved onto the panel
-reads 90° off.
+For release artifacts:
+
+```bash
+npm run dist:mac
+```
+
+Public macOS releases should be signed and notarized. The build config enables
+the hardened runtime and includes a microphone usage string, but signing
+credentials and notarization credentials must be supplied by the release
+environment.
+
+Plug in the DK-QUAKE display and USB before launch. The launcher finds the panel
+display, places a borderless window on it, wakes the backlight, and starts
+listening for touch and knob input.
+
+In macOS **System Settings → Displays**, set the DK-QUAKE to a landscape
+1920×480 arrangement when possible. That keeps pointer/touch alignment easiest
+to reason about. open-quake can render on a portrait 480×1920 display too, but
+external pointer coordinates are simpler when macOS exposes the panel as
+landscape.
+
+## Current macOS limitations
+
+- The Music page's transport buttons use `robotjs` media keys; macOS may require
+  Accessibility permission.
+- Generic now-playing metadata is still implemented through the Windows SMTC
+  helper and is not macOS-parity yet.
+- The System Monitor uses cross-platform `systeminformation` where possible, but
+  Windows-only PowerShell GPU counters do not apply on macOS.
+- Full device smoke tests are intentionally separate from build verification:
+  do not run DFU/firmware commands, voice smoke, or device smoke without explicit
+  operator approval.
 
 ## Code layout
 
@@ -58,12 +82,12 @@ src/Aris68Connector.js   the HID driver (events out, commands in)   [PolyForm NC
 docs/DEVICE_PROTOCOL.md   reverse-engineered protocol spec           [PolyForm NC]
 tools/                    standalone HID probe / write-test scripts  [PolyForm NC]
 app/                      the Electron launcher + PC grid editor     [MIT]
-  main.js                 host: windows, IPC, launch/volume/config
+  main.js                 host: macOS, IPC, launch/volume/config
   index.html              the on-panel UI (grids + web dashboards)
   config.html             the PC editor (pages, tiles, icons)
   config.default.json     seed config (copied to config.json on first run)
-  sysmetrics.js           SystemView: live host metrics (systeminformation + GPU counters)
-  nowplaying.js           Music: now-playing from Windows SMTC (via PowerShell)
+  sysmetrics.js           SystemView: live host metrics (systeminformation; some Windows-only counters remain)
+  nowplaying.js           Music: now-playing helper (Windows SMTC today; macOS parity pending)
   sysserver.js            localhost server for the served app pages (SystemView, Music, chat)
   sysview.html            SystemView: the on-panel system-monitor dashboard
   musicview.html          Music: now-playing + transport + the embedded app grid

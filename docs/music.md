@@ -1,22 +1,21 @@
 # Music controller
 
-A built-in **Music** app shows what's playing on your PC — title, artist, and play state —
-with big touch **transport controls** (play/pause, next, previous, stop), plus a programmable
+A built-in **Music** app shows a touch-friendly media surface on your panel — transport controls
+(play/pause, next, previous, stop), plus a programmable
 **2×2 app-launcher grid** on the right (Spotify, YouTube Music, Apple Music, Tidal by default).
 It's added on first run; like any app you can delete it (it stays gone) or add more via **+ App**.
 
-- **Now-playing** is read from the Windows media flyout (System Media Transport Controls), so it's
-  **app-agnostic** — and the transport buttons send standard media keys, controlling whatever's playing.
+- **macOS status:** transport buttons send standard media keys through `robotjs`, so macOS may ask
+  for Accessibility permission. Generic now-playing metadata is still Windows-SMTC-only and shows
+  placeholders on macOS until a macOS media-session backend is added.
 - **The 2×2 grid is a real, editable grid** — open the Music app in the [editor](editor.md) and program
-  its tiles exactly like the Default/Media/Dev grids; each tile opens a URL in your PC browser or launches
+  its tiles exactly like the Default/Media/Dev grids; each tile opens a URL in your Mac browser or launches
   an app, same as any tile. (This is the "grid embedded in an app" capability — apps can carry their own grid.)
 - **No admin, no extra software.**
 
 ## Compatibility
 
-**Works with** anything that appears in the Windows media flyout — tested with Spotify, YouTube Music,
-Music Assistant, Amazon Music, Tidal, Apple Music (web), SoundCloud, Bandcamp, and Plex (web). Browser
-players generally "just work" via the browser's media-session integration. A few desktop apps don't
-register with the flyout and so won't show now-playing or respond to the buttons (e.g. **VLC**, **Plexamp**).
+On macOS, media-key transport generally controls the active media app/session, but now-playing text is
+not app-agnostic yet. The editable 2×2 launch grid works independently of now-playing support.
 
-*(Album art is a planned follow-up — the media-flyout thumbnail needs a small helper to extract.)*
+*(A macOS now-playing backend and album art are planned follow-ups.)*

@@ -9,14 +9,14 @@ software running.
 
 *From top: the grid launcher · a merged-tile Media grid · the flip-clock app · a [Windy](https://www.windy.com) weather map and a [Home Assistant](https://www.home-assistant.io) dashboard — each with the knob's RGB ring lit a different color.*
 
-### **[⬇ Download for Windows](https://github.com/TeeJS/open-quake/releases/)** &nbsp;·&nbsp; or [build from source](docs/building.md)
+### **[⬇ Download for macOS](https://github.com/TeeJS/open-quake/releases/)** &nbsp;·&nbsp; or [build from source](docs/building.md)
 
 > **Switching pages:** the panel shows one page at a time — **double-click the knob** to open the page selector, rotate to highlight a page, then press to switch. open-quake shows this tip right on the panel the first time you launch it.
 
 It gives you:
 
 - **A multi-grid launcher** — each page is a grid of tiles; tap a tile — or click it
-  with your PC mouse — to open an app, URL, shell command, file, a system action
+  with your Mac pointer — to open an app, URL, shell command, file, a system action
   (lock screen), or jump to another open-quake page. Icons can be an emoji, the
   program's own icon, or a custom image. → [Editor](docs/editor.md)
 - **Web dashboard pages** — a page can be a live web view (Home Assistant, Grafana,
@@ -29,7 +29,7 @@ It gives you:
   transport + app grid), a **[System Monitor](docs/system-monitor.md)** (live
   CPU/GPU/RAM/disk/network/battery), and an **[Open WebUI chat](docs/ai-chat.md)** you can
   **talk to by holding the knob**. → [Apps](docs/apps.md)
-- **A PC-side editor** — build pages of tiles, merge adjacent tiles into larger buttons,
+- **A Mac-side editor** — build pages of tiles, merge adjacent tiles into larger buttons,
   drag-and-drop to rearrange, then **Save** to push to the panel. → [Editor](docs/editor.md)
 - **Settings** — choose how it launches, **auto-rotate** through pages on a timer, toggle
   the mic, and tune the knob ring; plus a system-tray menu of quick toggles. → [Settings](docs/settings.md)
@@ -37,7 +37,7 @@ It gives you:
 > **Status:** early but capable. Touch, knob (incl. RGB ring + hold-to-talk), grids, merged
 > buttons, web dashboards, the bundled apps (clock / music / system monitor / AI chat), the
 > on-board mic, and the editor are working and validated against real hardware. The panel is
-> driven as a normal external monitor (Windows sees a 480×1920 / 1920×480 display); pushing
+> driven as a normal external monitor (macOS sees a 480×1920 / 1920×480 display); pushing
 > frames over the HID resource channel is not implemented.
 
 ## 📖 Documentation
@@ -50,17 +50,16 @@ Detailed guides live in **[docs/](docs/README.md)**:
 
 ## Download
 
-Grab a build from the **[Releases](https://github.com/TeeJS/open-quake/releases)** page (Windows x64):
-- **`open-quake-<version>-portable.exe`** — run directly, no install.
-- **`open-quake-<version>-setup.exe`** — installer (Start-menu shortcut + uninstaller).
+Grab a build from the **[Releases](https://github.com/TeeJS/open-quake/releases)** page (macOS):
+- **`open-quake-<version>-<arch>.dmg`** — drag the app to Applications.
+- **`open-quake-<version>-<arch>.zip`** — unpack and run the app directly.
 
-The exe is **code-signed** (Azure Trusted Signing, publisher *Thomas Schmitz*) — so you see a
-verified publisher, not "Unknown publisher." Windows SmartScreen may still show a **"Windows
-protected your PC"** prompt on first download; that's reputation-based (it eases as a release
-gains downloads), not a problem with the file. Confirm the publisher reads **Thomas Schmitz**,
-then click **More info → Run anyway**. Plug in the DK-QUAKE, then launch; config is stored in
-`%APPDATA%\open-quake`. (Linux/macOS builds would need platform-specific launch/volume work —
-not done yet.)
+Release artifacts should be signed and notarized before public distribution. Local developer
+builds can be unsigned; macOS Gatekeeper may require right-click → **Open** the first time. Plug
+in the DK-QUAKE display/USB, then launch. Config is stored in
+`~/Library/Application Support/open-quake`. Push-to-talk uses the microphone only while held and
+macOS will ask for microphone permission when the chat page first records audio. If media keys or
+global input controls are enabled, macOS may also ask for Accessibility permission.
 
 ## Licensing
 
