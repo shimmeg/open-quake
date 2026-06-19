@@ -66,7 +66,7 @@
     </div>
   </div>
 <script>
-  const { ipcRenderer } = require('electron');
+  const openQuakePanel = window.openQuakePanel;
   const grid = document.getElementById('grid'), vol = document.getElementById('vol'), web = document.getElementById('web');
   const selector = document.getElementById('selector'), selitems = document.getElementById('selitems');
   const intro = document.getElementById('intro'), introok = document.getElementById('introok');
@@ -102,15 +102,15 @@
   //     console-message tag (the guest has no nodeIntegration, so the console is the host channel);
   //   • window.open / target=_blank the page does itself — the webview's new-window event;
   //   • a JS navigation away from the board (location = …) — will-navigate, which we abort + restore.
-  web.addEventListener('new-window', (e) => { if (webExternalLinks && e.url) ipcRenderer.send('openExternal', e.url); });
+  web.addEventListener('new-window', (e) => { if (webExternalLinks && e.url) openQuakePanel.openExternal(e.url); });
   web.addEventListener('will-navigate', (e) => {
     if (webExternalLinks && webReady && e.url && e.url !== curUrl) {
-      ipcRenderer.send('openExternal', e.url);
+      openQuakePanel.openExternal(e.url);
       try { web.stop(); web.src = curUrl; } catch (er) {}       // abort the panel nav, keep the board up
     }
   });
   web.addEventListener('console-message', (e) => {
-    if (webExternalLinks && e.message && e.message.indexOf('OQX_OPEN::') === 0) ipcRenderer.send('openExternal', e.message.slice(10));
+    if (webExternalLinks && e.message && e.message.indexOf('OQX_OPEN::') === 0) openQuakePanel.openExternal(e.message.slice(10));
   });
   web.addEventListener('did-finish-load', () => {
     if (!webExternalLinks) return;
@@ -149,7 +149,7 @@
       grid.appendChild(d);
     });
   }
-  ipcRenderer.on('grid', (e, g) => {
+  openQuakePanel.onGrid(g => {
     cfg = g;
     if (g && g.kind === 'web') {            // dashboard page -> show the webview
       webMode = true; grid.style.display = 'none'; web.classList.add('show');
@@ -162,12 +162,12 @@
       webMode = false; web.classList.remove('show'); grid.style.display = 'grid'; build();
     }
   });
-  ipcRenderer.on('gridList', (e, d) => { grids = d.grids; activeId = d.activeId; if (selOpen) renderWheel(); });
-  ipcRenderer.on('rotation', (e, r) => { rotEnabled = !!r.enabled; rotRunning = !!r.running; if (selOpen) renderWheel(); });
+  openQuakePanel.onGridList(d => { grids = d.grids; activeId = d.activeId; if (selOpen) renderWheel(); });
+  openQuakePanel.onRotation(r => { rotEnabled = !!r.enabled; rotRunning = !!r.running; if (selOpen) renderWheel(); });
 
   // ---- first-run intro overlay (one-time "double-click the knob" hint) ----
-  ipcRenderer.on('intro', () => { if (introOpen) return; introOpen = true; intro.classList.add('open'); });
-  function dismissIntro() { if (!introOpen) return; introOpen = false; intro.classList.remove('open'); ipcRenderer.send('introDone'); }
+  openQuakePanel.onIntro(() => { if (introOpen) return; introOpen = true; intro.classList.add('open'); });
+  function dismissIntro() { if (!introOpen) return; introOpen = false; intro.classList.remove('open'); openQuakePanel.introDone(); }
   introok.addEventListener('click', dismissIntro);   // PC mouse
 
   // ---- touch -> launch ----
@@ -185,14 +185,14 @@
     if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { const el = grid.querySelector(`[data-i="${i}"]`); if (el) el.classList.add('hit'); }
     lastHit = i;
   }
-  ipcRenderer.on('touch', (e, pts) => {
+  openQuakePanel.onTouch(pts => {
     if (introOpen) { if (pts.some(p => p.action === 1)) dismissIntro(); return; }   // any tap dismisses the intro
     if (selOpen) return; // ignore touch while picking a page
     const p = pts.find(p => p.action === 1) || pts[0]; if (!p) return;
     if (webMode) return webTouch(p);        // dashboard: forward as mouse to the webview
     const i = tileAt(p.x, 480 - p.y);
     highlight(i);
-    if (!armed && i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { armed = true; ipcRenderer.send('launch', cfg.tiles[i]); }
+    if (!armed && i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { armed = true; openQuakePanel.launch(cfg.tiles[i]); }
     clearTimeout(idleT);
     idleT = setTimeout(() => { armed = false; highlight(-1); }, 180);
   });
@@ -205,7 +205,7 @@
     const i = parseInt(el.dataset.i, 10);
     if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) {
       highlight(i);
-      ipcRenderer.send('launch', cfg.tiles[i]);
+      openQuakePanel.launch(cfg.tiles[i]);
       setTimeout(() => highlight(-1), 180);
     }
   });
@@ -254,14 +254,14 @@
   function moveSelector(dir) { selIdx = Math.min(wheelItems().length - 1, Math.max(0, selIdx + dir)); renderWheel(); resetAutoClose(); }
   function confirmSelector() {
     const it = wheelItems()[selIdx]; closeSelector();
-    if (it && it.rot) ipcRenderer.send('toggleRotation');
-    else if (it) ipcRenderer.send('switchGrid', it.id);
+    if (it && it.rot) openQuakePanel.toggleRotation();
+    else if (it) openQuakePanel.switchGrid(it.id);
   }
   function resetAutoClose() { clearTimeout(selAutoClose); selAutoClose = setTimeout(closeSelector, 4500); }
 
   // ---- knob ----
   // The knob does click-type detection in hardware: press index 1 = single-click, 2 = double-click.
-  ipcRenderer.on('knob', (e, k) => {
+  openQuakePanel.onKnob(k => {
     if (introOpen) {   // teach by doing: a double-click clears the intro and opens the page menu; ignore other knob input
       if (k.type === 'press' && k.index === 2) { dismissIntro(); openSelector(); }
       return;
@@ -277,13 +277,13 @@
         // under that point, so inner scroll containers (Grafana/HA panels) scroll too.
         try { web.sendInputEvent({ type: 'mouseWheel', x: 960, y: 240, deltaX: 0, deltaY: k.dir > 0 ? -120 : 120, wheelTicksX: 0, wheelTicksY: k.dir > 0 ? -1 : 1, hasPreciseScrollingDeltas: true, canScroll: true }); } catch (e) {}
       }
-      else { ipcRenderer.send('volume', k.dir > 0 ? 1 : -1); flashVol(k.dir > 0 ? '🔊 +' : '🔉 −'); }
+      else { openQuakePanel.volume(k.dir > 0 ? 1 : -1); flashVol(k.dir > 0 ? '🔊 +' : '🔉 −'); }
       return;
     }
     if (k.type === 'press') {
       if (selOpen) { confirmSelector(); return; }           // any press picks the highlighted grid
       if (k.index === 2) { openSelector(); }                // double-click -> grid selector
-      else { ipcRenderer.send('volume', 'mute'); flashVol('🔇'); }  // single-click -> mute
+      else { openQuakePanel.volume('mute'); flashVol('🔇'); }  // single-click -> mute
     }
   });
   function flashVol(t) { vol.textContent = t; vol.style.opacity = 1; clearTimeout(volT); volT = setTimeout(() => vol.style.opacity = 0, 500); }

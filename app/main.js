@@ -241,7 +241,12 @@ function placePanel() {
     panelWin = new BrowserWindow({
       x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
       frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
-      webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true },
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'panel-preload.js'),
+        webviewTag: true,
+      },
     });
     panelWin.loadFile(path.join(__dirname, 'index.html'));
     panelWin.once('ready-to-show', () => {
@@ -259,7 +264,12 @@ function openConfigWindow() {
   const prim = screen.getPrimaryDisplay().bounds;
   configWin = new BrowserWindow({
     width: 1180, height: 760, x: prim.x + 80, y: prim.y + 60, title: 'open-quake Editor',
-    backgroundColor: '#11151c', webPreferences: { nodeIntegration: true, contextIsolation: false },
+    backgroundColor: '#11151c',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'config-preload.js'),
+    },
   });
   configWin.loadFile(path.join(__dirname, 'config.html'));
   configWin.on('closed', () => { configWin = null; });

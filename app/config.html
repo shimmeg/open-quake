@@ -96,8 +96,7 @@
     <button class="primary" id="saveBtn" disabled>Save</button>
   </footer>
 <script>
-  const { ipcRenderer } = require('electron');
-  const { pathToFileURL } = require('url');
+  const openQuakeConfig = window.openQuakeConfig;
   let config = { activeGridId: null, grids: [] };
   let gi = 0, ti = -1, selEnd = -1, dragFrom = -1, dirty = false, appDefs = [], view = 'pages', ledState = null, settingsTab = 'software';
   // QMK RGB-Matrix effect names — index is the value written to the device (0 = ring off).
@@ -141,7 +140,7 @@
     const show = inp.type === 'password'; inp.type = show ? 'text' : 'password';
     b.textContent = show ? '🙈' : '👁';
   });
-  const fileUrl = p => { try { return pathToFileURL(p).href; } catch (e) { return ''; } };
+  const fileUrl = p => openQuakeConfig.pathToFileURL(p);
   const baseName = p => p.split(/[\\/]/).pop().replace(/\.(exe|lnk|bat|cmd|com)$/i, '');
   const iconTypeOf = t => t.iconType || 'emoji';
 
@@ -157,7 +156,7 @@
   // ---- save model (no live edit) ----
   function setState(text, cls) { const el = document.getElementById('state'); el.textContent = text; el.className = 'state' + (cls ? ' ' + cls : ''); }
   function markDirty() { dirty = true; setState('● unsaved changes', 'dirty'); document.getElementById('saveBtn').disabled = false; }
-  function doSave() { ipcRenderer.send('saveConfigFromEditor', config); dirty = false; document.getElementById('saveBtn').disabled = true; setState('saved ✓', 'saved'); }
+  function doSave() { openQuakeConfig.saveConfig(config); dirty = false; document.getElementById('saveBtn').disabled = true; setState('saved ✓', 'saved'); }
 
   // ---- tiles / icons ----
   function blankTile() { return { label: '', icon: '', type: '', value: '', iconType: 'emoji', iconImage: '' }; }
@@ -166,7 +165,7 @@
   async function ensureAppIcon(value) {
     if (!value || Object.prototype.hasOwnProperty.call(appIconCache, value)) return;
     appIconCache[value] = null;                 // in-flight, prevents duplicate calls
-    appIconCache[value] = (await ipcRenderer.invoke('getAppIcon', value)) || false;
+    appIconCache[value] = (await openQuakeConfig.getAppIcon(value)) || false;
     render();
   }
   // icon HTML for a tile in a given context: 'cell' (grid preview) or 'prev' (big preview)
@@ -351,7 +350,7 @@
     if (tp) { if (tp.value && tp.value !== t.value) { t.value = tp.value; markDirty(); } tp.onchange = e => { t.value = e.target.value; renderTiles(); markDirty(); }; }
     document.getElementById('tClear').onclick = () => { flattenAt(g, ti); g.tiles[ti] = blankTile(); render(); markDirty(); };
     const br = document.getElementById('tBrowse');
-    if (br) br.onclick = async () => { const p = await ipcRenderer.invoke('pickProgram'); if (p) { t.value = p; if (!t.label) t.label = baseName(p); render(); markDirty(); } };
+    if (br) br.onclick = async () => { const p = await openQuakeConfig.pickProgram(); if (p) { t.value = p; if (!t.label) t.label = baseName(p); render(); markDirty(); } };
     renderIconPane();
   }
 
@@ -386,7 +385,7 @@
       if (t.value) ensureAppIcon(t.value);
     } else {
       el.innerHTML = `<div class="row"><input id="tImage" value="${esc(t.iconImage)}" placeholder="path to an image" readonly><button id="tImgBrowse">Browse…</button></div>`;
-      document.getElementById('tImgBrowse').onclick = async () => { const p = await ipcRenderer.invoke('pickImage'); if (p) { t.iconImage = p; renderIconDetail(t); renderIconPreview(t); renderTiles(); markDirty(); } };
+      document.getElementById('tImgBrowse').onclick = async () => { const p = await openQuakeConfig.pickImage(); if (p) { t.iconImage = p; renderIconDetail(t); renderIconPreview(t); renderTiles(); markDirty(); } };
     }
   }
 
@@ -645,7 +644,7 @@
       document.getElementById('sRotA').onchange = e => { const r = currentRot(); r.cats.apps = e.target.checked; saveRot(r); };
     } else {
       // Lighting writes go straight to the device (and persist in config) via the main process — no Save needed.
-      const live = patch => { Object.assign(L, patch); if (!config.settings) config.settings = {}; config.settings.lighting = Object.assign({}, L); ipcRenderer.send('setLighting', patch); };
+      const live = patch => { Object.assign(L, patch); if (!config.settings) config.settings = {}; config.settings.lighting = Object.assign({}, L); openQuakeConfig.setLighting(patch); };
       document.getElementById('sEffect').value = String(L.effect);
       document.getElementById('sMic').checked = !!s.micOnLaunch;
       document.getElementById('sMic').onchange = e => setS('micOnLaunch', e.target.checked);
@@ -660,7 +659,7 @@
       document.getElementById('sSpeed').onchange = e => live({ speed: parseInt(e.target.value, 10) });
       document.getElementById('sSaveLed').onclick = async () => {
         const msg = document.getElementById('sSaveLedMsg'); msg.textContent = 'saving…';
-        const ok = await ipcRenderer.invoke('saveLightingToDevice');
+        const ok = await openQuakeConfig.saveLightingToDevice();
         msg.textContent = ok ? 'saved to device ✓' : 'save failed';
       };
     }
@@ -680,14 +679,14 @@
   document.getElementById('saveBtn').onclick = doSave;
   document.getElementById('settingsBtn').onclick = async () => {
     view = view === 'settings' ? 'pages' : 'settings';
-    if (view === 'settings') { ledState = null; try { ledState = await ipcRenderer.invoke('getLighting'); } catch (e) {} }
+    if (view === 'settings') { ledState = null; try { ledState = await openQuakeConfig.getLighting(); } catch (e) {} }
     render();
   };
   window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) doSave(); } });
 
   (async () => {
-    config = await ipcRenderer.invoke('getConfig'); if (!config.grids) config.grids = [];
-    try { appDefs = await ipcRenderer.invoke('getApps'); } catch (e) {}
+    config = await openQuakeConfig.getConfig(); if (!config.grids) config.grids = [];
+    try { appDefs = await openQuakeConfig.getApps(); } catch (e) {}
     render(); setState('');
   })();
 </script>
