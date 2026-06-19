@@ -65,11 +65,11 @@
         "zip"
       ],
       "category": "public.app-category.productivity",
-      "icon": "build/icon.png",
+      "icon": "packaging/macos/icon.png",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
+      "entitlements": "packaging/macos/entitlements.mac.plist",
+      "entitlementsInherit": "packaging/macos/entitlements.mac.plist",
       "artifactName": "open-quake-${version}-${arch}.${ext}",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "open-quake records audio only while push-to-talk is held, then sends that clip to your configured Open WebUI transcription endpoint.",
