@@ -110,6 +110,11 @@ function assertNoPattern(rel, regex, id, message) {
   }
 }
 
+function assertPattern(rel, regex, id, message) {
+  const source = read(rel);
+  if (!regex.test(source)) fail(id, `${rel}: ${message}`);
+}
+
 const main = read('app/main.js');
 const mainFunctions = functionRanges(main);
 
@@ -167,6 +172,37 @@ for (const [rel, regex] of queryReaders) {
   assertNoPattern(rel, regex, 'no-api-key-query-read', 'Open WebUI API key must not be read from URL query parameters');
 }
 
+const chatWidget = read('app/ChatWidget.js');
+if (!/\bfunction\s+sanitizeRenderedMarkdown\s*\(/.test(chatWidget)) {
+  fail('markdown-sanitizer', 'app/ChatWidget.js must sanitize marked output before HTML insertion');
+}
+if (!/sanitizeRenderedMarkdown\s*\(\s*k\.parse\s*\(/.test(chatWidget)) {
+  fail('markdown-sanitizer', 'app/ChatWidget.js must pass marked output through sanitizeRenderedMarkdown()');
+}
+if (!/\.startsWith\s*\(\s*['"]on['"]\s*\)/.test(chatWidget)) {
+  fail('markdown-sanitizer-events', 'app/ChatWidget.js sanitizer must remove event-handler attributes');
+}
+if (!/OQ_MARKDOWN_URL_PROTOCOLS/.test(chatWidget) || !/javascript:/i.test(chatWidget)) {
+  fail('markdown-sanitizer-urls', 'app/ChatWidget.js sanitizer must enforce a URL protocol allowlist that excludes javascript: URLs');
+}
+
+for (const rel of ['app/index.html', 'app/config.html', 'app/chatview.html', 'app/sysview.html', 'app/musicview.html']) {
+  assertPattern(
+    rel,
+    /<meta\s+http-equiv=["']Content-Security-Policy["']/i,
+    'local-page-csp',
+    'local app pages must declare a Content-Security-Policy meta tag',
+  );
+}
+
+const sysserver = read('app/sysserver.js');
+assertPattern(
+  'app/sysserver.js',
+  /Content-Security-Policy/,
+  'local-server-csp',
+  'localhost app server responses must include a Content-Security-Policy header',
+);
+
 const appPageUrl = mainFunctions.find((fn) => fn.name === 'appPageUrl');
 if (!appPageUrl) {
   fail('no-secret-query-builder', 'app/main.js must keep appPageUrl explicit enough for secret URL checks');
@@ -181,7 +217,6 @@ if (!appPageUrl) {
   }
 }
 
-const sysserver = read('app/sysserver.js');
 if (!/server\.listen\s*\(\s*0\s*,\s*['"]127\.0\.0\.1['"]/.test(sysserver)) {
   fail('sysserver-loopback', 'app/sysserver.js must keep sysserver.listen bound to 127.0.0.1');
 }
