@@ -8,6 +8,8 @@ const readme = read('README.md');
 const building = read('docs/building.md');
 
 assert.match(readme, /Run locally on macOS/, 'README must document local macOS source runs');
+assert.match(readme, /security-hardening, macOS-focused fork of\s+\[TeeJS\/open-quake\]/, 'README must clearly state this repository is a fork');
+assert.match(readme, /Thanks to \*\*TeeJS\*\* and\s+the upstream contributors/, 'README must credit the upstream developer and contributors');
 assert.match(readme, /npm ci/, 'README must document dependency installation');
 assert.match(readme, /npm run rebuild/, 'README must document native module rebuild');
 assert.match(readme, /npm start/, 'README must document local app startup');

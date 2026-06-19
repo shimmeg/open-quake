@@ -1,5 +1,10 @@
 # open-quake
 
+This repository is a security-hardening, macOS-focused fork of
+[TeeJS/open-quake](https://github.com/TeeJS/open-quake). Thanks to **TeeJS** and
+the upstream contributors for creating and maintaining the original open-quake
+project for the DK-QUAKE / ARIS-68 hardware.
+
 An open driver and touchscreen launcher for the **DK-QUAKE / ARIS-68** — the
 1920×480 touchscreen-plus-knob macro device (sold with the closed-source
 DK-Suite app). `open-quake` talks to it directly over HID, with no vendor
@@ -90,6 +95,14 @@ Split-licensed — see **[NOTICE](NOTICE)**:
   permission from the protocol holders.
 
 No vendor code, binaries, or API keys are included in this repository.
+
+## Acknowledgements
+
+This fork builds on the original
+[TeeJS/open-quake](https://github.com/TeeJS/open-quake) project. Credit and
+thanks go to **TeeJS** and the upstream contributors for the initial application,
+device research, documentation, and DK-QUAKE / ARIS-68 support that made this
+hardening work possible.
 
 ## Safety
 
