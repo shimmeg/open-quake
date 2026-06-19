@@ -46,6 +46,14 @@ Normal app launching should use the `app` tile type, which avoids shell
 interpolation. Keep command execution centralized in `app/actionRunner.js` and
 guarded by `npm run security:actions`.
 
+## Native Input Surface
+
+`robotjs` is currently scoped to fixed media-key and volume/mute events for the
+Music page and knob volume controls. It is not used for arbitrary mouse or
+keyboard automation. Replacing it with a narrower macOS media backend remains a
+follow-up because global media-key behavior needs a reliable macOS-specific
+implementation and should not break the launcher.
+
 ## Dashboard Permissions
 
 Dashboard pages run in the `persist:dashboards` webview partition. Permission
