@@ -9,7 +9,9 @@ software running.
 
 *From top: the grid launcher · a merged-tile Media grid · the flip-clock app · a [Windy](https://www.windy.com) weather map and a [Home Assistant](https://www.home-assistant.io) dashboard — each with the knob's RGB ring lit a different color.*
 
-### **[⬇ Download for macOS](https://github.com/TeeJS/open-quake/releases/)** &nbsp;·&nbsp; or [build from source](docs/building.md)
+**Current fork status:** macOS source-run target. This fork does not currently
+publish ready-to-install macOS release artifacts; run it locally from source for
+testing and development. See [Run locally on macOS](#run-locally-on-macos).
 
 > **Switching pages:** the panel shows one page at a time — **double-click the knob** to open the page selector, rotate to highlight a page, then press to switch. open-quake shows this tip right on the panel the first time you launch it.
 
@@ -34,11 +36,12 @@ It gives you:
 - **Settings** — choose how it launches, **auto-rotate** through pages on a timer, toggle
   the mic, and tune the knob ring; plus a system-tray menu of quick toggles. → [Settings](docs/settings.md)
 
-> **Status:** early but capable. Touch, knob (incl. RGB ring + hold-to-talk), grids, merged
-> buttons, web dashboards, the bundled apps (clock / music / system monitor / AI chat), the
-> on-board mic, and the editor are working and validated against real hardware. The panel is
-> driven as a normal external monitor (macOS sees a 480×1920 / 1920×480 display); pushing
-> frames over the HID resource channel is not implemented.
+> **Status:** early security-hardening fork. The editor and local app shell run on macOS
+> from source and have been smoke-tested without the DK-QUAKE connected. The device-facing
+> HID driver, panel placement, knob controls, dashboards, bundled apps, and push-to-talk are
+> present, but full macOS device smoke and release packaging/signing are still follow-up work.
+> The panel is driven as a normal external monitor (macOS sees a 480×1920 / 1920×480 display);
+> pushing frames over the HID resource channel is not implemented.
 
 ## 📖 Documentation
 
@@ -48,18 +51,31 @@ Detailed guides live in **[docs/](docs/README.md)**:
 - [Music controller](docs/music.md) · [System monitor](docs/system-monitor.md) · [Open WebUI chat + voice](docs/ai-chat.md)
 - [Settings & knob lighting](docs/settings.md) · [Building & how it works](docs/building.md) · [Device protocol](docs/DEVICE_PROTOCOL.md)
 
-## Download
+## Run locally on macOS
 
-Grab a build from the **[Releases](https://github.com/TeeJS/open-quake/releases)** page (macOS):
-- **`open-quake-<version>-<arch>.dmg`** — drag the app to Applications.
-- **`open-quake-<version>-<arch>.zip`** — unpack and run the app directly.
+There is no published macOS app download for this fork yet. Use a source checkout for local
+testing:
 
-Release artifacts should be signed and notarized before public distribution. Local developer
-builds can be unsigned; macOS Gatekeeper may require right-click → **Open** the first time. Plug
-in the DK-QUAKE display/USB, then launch. Config is stored in
-`~/Library/Application Support/open-quake`. Push-to-talk uses the microphone only while held and
-macOS will ask for microphone permission when the chat page first records audio. If media keys or
-global input controls are enabled, macOS may also ask for Accessibility permission.
+```bash
+npm ci
+npm run rebuild
+npm start
+```
+
+Use Node 24 LTS or another supported Node in the `>=22.12 <25` range. Node 25/26 can install
+some packages, but native Electron modules are more likely to fail or produce misleading
+results.
+
+Without the DK-QUAKE connected, the editor still opens so you can inspect pages, tiles, and
+settings. With the device connected, plug in both the USB HID connection and the display cable,
+then launch the app. Config is stored in `~/Library/Application Support/open-quake`.
+
+Push-to-talk records microphone audio only while held and sends the clip to your configured
+Open WebUI transcription endpoint. macOS will ask for microphone permission when the chat page
+first records audio. If media keys or global input controls are enabled, macOS may also ask for
+Accessibility permission.
+
+For deeper build notes and architecture details, see [Building & how it works](docs/building.md).
 
 ## Licensing
 
