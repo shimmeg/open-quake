@@ -11,13 +11,14 @@ software running.
 
 ### **[⬇ Download for Windows](https://github.com/TeeJS/open-quake/releases/)** &nbsp;·&nbsp; or build from source (below)
 
-> **Switching pages:** the panel shows one page at a time — **double-click the knob** to open the page selector, rotate to highlight a page, then press to switch.
+> **Switching pages:** the panel shows one page at a time — **double-click the knob** to open the page selector, rotate to highlight a page, then press to switch. open-quake shows this tip right on the panel the first time you launch it.
 
 It gives you:
 
-- **A multi-grid launcher** — each page is a grid of tiles; tap a tile to open an
-  app, URL, shell command, file, or system action (lock screen). A tile's icon
-  can be an emoji, the program's own icon, or a custom image.
+- **A multi-grid launcher** — each page is a grid of tiles; tap a tile — or click it
+  with your PC mouse — to open an app, URL, shell command, file, a system action
+  (lock screen), or jump straight to another open-quake page. A tile's icon can be
+  an emoji, the program's own icon, or a custom image.
 - **Web dashboard pages** — a page can instead be a live web view (Home Assistant,
   Grafana / server monitoring, a status page, …) shown full-screen on the panel:
   the knob scrolls it, a tap clicks, and logins persist across restarts. Pages that
@@ -28,7 +29,7 @@ It gives you:
   pick a page by name, press to switch). The **RGB ring** around the knob is
   configurable — color, effect, brightness, and speed (see [Settings](#settings--knob-lighting)).
 - **A PC-side editor** — build pages of tiles (each opens an app / URL / shell
-  command / file or a system action) with an emoji, app, or image icon; **merge**
+  command / file, a system action, or another page) with an emoji, app, or image icon; **merge**
   adjacent tiles into one larger button; **drag-and-drop** to rearrange; then
   **Save** to push to the panel.
 - **Settings** — choose how the app starts (editor window, minimized, or tray-only),
@@ -101,13 +102,16 @@ list holds your **pages** — each is a tile **Grid**, a web **Dashboard**, or a
 ![The grid editor — the Default page](docs/shots/editor-default.png)
 
 On a grid page you can:
-- **Edit tiles** — label, action (app / URL / shell command / open file / system),
-  and icon (emoji, the program's own icon, or a custom image).
+- **Edit tiles** — label, action (app / URL / shell command / open file / system, or
+  **Go to open-quake page** to jump to another of your pages), and icon (emoji, the
+  program's own icon, or a custom image).
 - **Merge** — click a tile, **Shift-click** another to select a block, then **Merge**
   to show them as one larger button (Unmerge to split).
 - **Rearrange** — **drag-and-drop** to swap tiles; drag a merged block to move it
   (tiles it lands on slide into the freed cells).
 - **Resize** the grid (columns × rows).
+
+Text fields throughout the editor support the usual **right-click menu** — cut, copy, paste, and select-all.
 
 The shipped **Media** grid is a 10×4 example built around merged buttons — a 4×4
 hero plus a couple of 2×2 tiles:

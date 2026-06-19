@@ -71,6 +71,10 @@ Queries = `0xA3` opCode `2`; SETs = `0xA3` opCode `1`. Frame `[0xA3, len, opCode
 
 Other senders: buzzer `l(163,[2,tone],1)`; knob-LED `l(163,[6,0/1],1)`; **DFU `l(163,[47,3],1)` — DO NOT SEND**. Keep-alive interval `_.deviceKeepAliveGap`. Brightness SET is opCode 1 / cmd 5 + value (to confirm).
 
+**Buzzer SUSTAINS** — `l(163,[2,tone],1)` turns the buzzer on and it keeps ringing until silenced with tone 0 (`l(163,[2,0],1)`); it is NOT a one-shot beep.
+
+**Mic LED is firmware-coupled to the mic mute — no independent control (probed 2026-06-18, all negative).** Held the mic ON and watched the indicator LED while sending: `0x03` with extra/alt params (`[03,01,00]`, `[03,01,02]`, `[03,02]`), plus every unmapped opCode-1 SET cmdID `0x07`–`0x0D` at both value 0 and 1 — nothing turned the LED off while the audio stayed live. The LED simply tracks the `0x03` mute state in firmware; there is no separate LED on/off or brightness command (DK-Suite exposes none either). **To kill the bright mic LED you must mute the mic.** The LED also only lights once the panel is fully awake — at connect a `0x03` set toggles the audio but the LED is dropped until a later `screenOn` re-syncs it (open-quake re-asserts mic ~2 s after connect for this reason). DFU `0x2F` was never sent during probing.
+
 ## 9. Remaining: display output (the last piece)
 Wire op = `wrapData(0xA2, jpegBytes, 0x02, "resType-RC", seq)` (per-tile) — but the full 1920×480 Quake screen likely uses a **full-frame** push via the "RemoteScreen" window. Trace `sendResource` / `_checkForQuakeScreen` / `_triggerScreenBindProcess` / RemoteScreen in the blob to get the framing, then push a test image.
 
