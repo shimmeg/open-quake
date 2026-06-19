@@ -6,6 +6,14 @@ import fs from 'node:fs';
 const read = file => fs.readFileSync(file, 'utf8');
 const readme = read('README.md');
 const building = read('docs/building.md');
+const privacy = read('PRIVACY.md');
+const aiChat = read('docs/ai-chat.md');
+const settings = read('docs/settings.md');
+const docsIndex = read('docs/README.md');
+const hardeningPath = 'docs/security/open-quake-hardening.md';
+const hardening = fs.existsSync(hardeningPath) ? read(hardeningPath) : '';
+const releasePath = 'docs/release-readiness.md';
+const release = fs.existsSync(releasePath) ? read(releasePath) : '';
 
 assert.match(readme, /Run locally on macOS/, 'README must document local macOS source runs');
 assert.match(readme, /security-hardening, macOS-focused fork of\s+\[TeeJS\/open-quake\]/, 'README must clearly state this repository is a fork');
@@ -28,5 +36,37 @@ assert.match(building, /Build & run \(macOS\)/, 'building docs must make macOS t
 assert.match(building, /npm run dist:mac:dir/, 'building docs must document the unsigned macOS dir build');
 assert.match(building, /CSC_IDENTITY_AUTO_DISCOVERY=false/, 'building docs must document unsigned local macOS packaging');
 assert.doesNotMatch(building, /Build & run \(Windows\)/, 'building docs must not keep Windows as the primary build section');
+
+assert.doesNotMatch(privacy, /free, open-source Windows desktop application/, 'privacy docs must not describe the fork as a Windows desktop app');
+assert.doesNotMatch(privacy, /does not record, capture, or transmit audio/i, 'privacy docs must not deny push-to-talk audio recording/transmission');
+assert.doesNotMatch(privacy, /%APPDATA%\\open-quake/, 'privacy docs must not use Windows config path as the primary path');
+assert.match(privacy, /Library\/Application Support\/open-quake/, 'privacy docs must document the macOS config location');
+assert.match(privacy, /Push-to-talk records microphone audio only while held/i, 'privacy docs must disclose push-to-talk recording behavior');
+assert.match(privacy, /Open WebUI transcription endpoint/i, 'privacy docs must disclose push-to-talk transcription upload destination');
+
+assert.doesNotMatch(aiChat, /%APPDATA%\\open-quake/, 'Open WebUI docs must not use Windows config path as the primary path');
+assert.doesNotMatch(aiChat, /api_key=|api_key…/, 'Open WebUI docs must not claim API keys are passed in the URL query');
+assert.match(aiChat, /\/app-config/, 'Open WebUI docs must describe runtime config served outside the URL query');
+assert.match(settings, /Library\/Application Support\/open-quake/, 'settings docs must document the macOS config location');
+assert.doesNotMatch(settings, /%APPDATA%\\open-quake/, 'settings docs must not use Windows config path as the primary path');
+
+assert.match(docsIndex, /open-quake-hardening\.md/, 'docs index must link the security hardening guide');
+assert.match(docsIndex, /release-readiness\.md/, 'docs index must link the release readiness checklist');
+assert.ok(hardening, 'docs must include docs/security/open-quake-hardening.md');
+assert.match(hardening, /Threat model/i, 'hardening guide must include a threat model');
+assert.match(hardening, /Local secrets/i, 'hardening guide must describe local secrets');
+assert.match(hardening, /Shell command macro risk/i, 'hardening guide must describe shell command macro risk');
+assert.match(hardening, /Dashboard permissions/i, 'hardening guide must describe dashboard permissions');
+assert.match(hardening, /Signing and release verification/i, 'hardening guide must describe signing and release verification');
+assert.match(hardening, /PolyForm Noncommercial/i, 'hardening guide must include the protocol license warning');
+
+assert.ok(release, 'docs must include docs/release-readiness.md');
+assert.match(release, /CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac:dir/, 'release checklist must document unsigned macOS dir build verification');
+assert.match(release, /npm run dist:mac/, 'release checklist must mention signed macOS release build command');
+assert.match(release, /signing and notarization credentials/i, 'release checklist must gate dist:mac on signing/notarization credentials');
+assert.match(release, /SHA256/i, 'release checklist must require SHA256 checksums');
+assert.match(release, /signed or annotated tags/i, 'release checklist must require signed or annotated tags');
+assert.match(release, /Task 7\/8/i, 'release checklist must gate publishing on Task 7/8 hardening');
+assert.match(release, /smoke/i, 'release checklist must require smoke status before publishing');
 
 console.log('macOS docs checks passed.');

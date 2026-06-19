@@ -22,13 +22,27 @@ const nowplaying = require('./nowplaying');
 const FALLBACK = '<!doctype html><meta charset="utf-8">'
   + '<body style="margin:0;background:#05080d;color:#9fb3c8;font:20px Segoe UI">page asset missing.</body>';
 const MEDIA_CMDS = { playpause: 1, next: 1, prev: 1, stop: 1 };
+const LOCAL_APP_CSP = [
+  "default-src 'self' http: https: file: data: blob:",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: file: http: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' http: https:",
+  "media-src 'self' blob: data:",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
 
 let server = null, onMedia = null, onLaunch = null, getMusicTiles = null, getAppConfig = null;
 let sysHtml = FALLBACK, musicHtml = FALLBACK, chatHtml = FALLBACK, chatJs = '', chatCss = '';
 
-function html(res, body) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(body); }
-function json(res, obj) { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
-function done(res, ok) { res.writeHead(ok ? 200 : 400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ ok: !!ok })); }
+function headers(type) { return { 'Content-Type': type, 'Cache-Control': 'no-store', 'Content-Security-Policy': LOCAL_APP_CSP }; }
+function html(res, body) { res.writeHead(200, headers('text/html; charset=utf-8')); res.end(body); }
+function json(res, obj) { res.writeHead(200, headers('application/json; charset=utf-8')); res.end(JSON.stringify(obj)); }
+function done(res, ok) { res.writeHead(ok ? 200 : 400, headers('application/json')); res.end(JSON.stringify({ ok: !!ok })); }
 
 async function handler(req, res) {
   if (req.method !== 'GET') { res.writeHead(405); res.end(); return; }
@@ -37,8 +51,8 @@ async function handler(req, res) {
   if (url === '/' || url === '/index.html') return html(res, sysHtml);
   if (url === '/music') return html(res, musicHtml);
   if (url === '/chat') return html(res, chatHtml);
-  if (url === '/ChatWidget.js') { res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(chatJs); }
-  if (url === '/owui-widget.css') { res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(chatCss); }
+  if (url === '/ChatWidget.js') { res.writeHead(200, headers('application/javascript; charset=utf-8')); return res.end(chatJs); }
+  if (url === '/owui-widget.css') { res.writeHead(200, headers('text/css; charset=utf-8')); return res.end(chatCss); }
   if (url === '/app-config') {
     const m = /[?&]app=([A-Za-z0-9_-]+)/.exec(full);
     const cfg = (m && getAppConfig) ? getAppConfig(m[1]) : null;

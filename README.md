@@ -68,7 +68,7 @@ Detailed guides live in **[docs/](docs/README.md)**:
 
 - [The editor](docs/editor.md) · [Web dashboards](docs/dashboards.md) · [Bundled apps](docs/apps.md)
 - [Music controller](docs/music.md) · [System monitor](docs/system-monitor.md) · [Open WebUI chat + voice](docs/ai-chat.md)
-- [Settings & knob lighting](docs/settings.md) · [Building & how it works](docs/building.md) · [Device protocol](docs/DEVICE_PROTOCOL.md)
+- [Settings & knob lighting](docs/settings.md) · [Building & how it works](docs/building.md) · [Security hardening](docs/security/open-quake-hardening.md) · [Release readiness](docs/release-readiness.md) · [Device protocol](docs/DEVICE_PROTOCOL.md)
 
 ## Run locally on macOS
 

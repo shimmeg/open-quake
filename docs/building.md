@@ -65,8 +65,10 @@ landscape.
 
 ## Current macOS limitations
 
-- The Music page's transport buttons use `robotjs` media keys; macOS may require
-  Accessibility permission.
+- The Music page's transport buttons and knob volume/mute use `robotjs` only for
+  fixed media-key events; macOS may require Accessibility permission. A narrower
+  macOS media backend is a follow-up so the launcher is not broken by a partial
+  replacement.
 - Generic now-playing metadata is still implemented through the Windows SMTC
   helper and is not macOS-parity yet.
 - The System Monitor uses cross-platform `systeminformation` where possible, but

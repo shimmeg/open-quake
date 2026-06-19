@@ -154,23 +154,25 @@ Secret storage:
 - Bundled default: `app/config.default.json`.
 - Dashboard tokens, custom header secrets, Basic auth credentials, and Open WebUI API keys are stored in plaintext config.
 
-Current exposure paths:
+Baseline exposure paths identified at v0.2.1, since remediated by later
+hardening work:
 
-- `appPageUrl(page)` serializes served app options into the loopback URL query string.
-- The Open WebUI `api_key`, `endpoint`, and `model` are placed into `http://127.0.0.1:<port>/chat?...`.
-- `app/chatview.html` reads the API key from `location.search` and uses it for transcription.
-- `app/ChatWidget.js` reads `api_key` from `window.location.search` and logs processed query parameters, including API key state.
+- `appPageUrl(page)` serialized served app options into the loopback URL query string.
+- The Open WebUI secret key was placed into the local chat page URL.
+- `app/chatview.html` read the API key from `location.search` and used it for transcription.
+- `app/ChatWidget.js` read the API key from `window.location.search` and logged processed query parameters, including API key state.
 - `getConfig` exposes the complete config object, including secrets, to the privileged editor renderer.
 
 ## Markdown And HTML Rendering
 
 - `app/ChatWidget.js` bundles `marked` and renders assistant Markdown into HTML sinks.
-- No explicit DOMPurify or equivalent sanitizer was identified in the current code.
-- `app/config.html`, `app/index.html`, and local app pages also use `innerHTML`; many values are escaped through local helpers, but Markdown output remains the high-risk path.
+- At baseline, no explicit DOMPurify or equivalent sanitizer was identified.
+- `app/config.html`, `app/index.html`, and local app pages also use `innerHTML`; many values are escaped through local helpers, but Markdown output was the high-risk path.
 
 ## Privacy Documentation Gap
 
-`PRIVACY.md` currently says open-quake does not record or transmit audio. Current behavior contradicts that:
+At baseline, `PRIVACY.md` did not disclose the push-to-talk audio flow. Current
+privacy docs must state that:
 
 - Push-to-talk records microphone audio while the knob is held.
 - The audio clip is sent to the user's configured Open WebUI transcription endpoint.

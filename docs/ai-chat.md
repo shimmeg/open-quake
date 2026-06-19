@@ -60,10 +60,11 @@ selector. Only a **hold** triggers voice, so it never clashes.
 ## How it works
 
 The chat app is a **served** app: open-quake serves its page over a loopback HTTP server at
-`http://127.0.0.1:<port>/chat?endpoint=…&api_key=…&model=…`. Serving it this way (rather than
-`file://`) means two things matter:
+`http://127.0.0.1:<port>/chat`. Serving it this way (rather than `file://`) means two
+things matter:
 
-- The widget reads its config from real **`?query` params** (which `file://` would drop).
+- The widget reads runtime config from the local **`/app-config`** route. The API key is
+  not placed in the page URL.
 - `http://127.0.0.1` is a **secure context**, so the browser allows `getUserMedia` (the mic).
   This is why our embedded chat can do voice over plain http, while the *full* Open WebUI web UI
   needs HTTPS when you open it on a LAN IP.
@@ -81,5 +82,6 @@ loopback origin). The bundled widget is the
   aren't set.
 - **Voice does nothing on hold** — make sure you're on the chat page; the device mic is on; and
   OWUI's STT is set to local Whisper.
-- **Security note** — the API key is stored in plain text in `%APPDATA%\open-quake\config.json`.
-  Fine for a local, trusted panel; don't ship that config off the device.
+- **Security note** — the API key is stored in plain text under
+  `~/Library/Application Support/open-quake`. Fine for a local, trusted panel; don't
+  publish or share that config.
