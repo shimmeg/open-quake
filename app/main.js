@@ -3,10 +3,11 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
+const actionRunner = require('./actionRunner');
 let robot = null; try { robot = require('robotjs'); } catch (e) { console.log('robotjs unavailable (knob-volume off):', e.message); }
 
 const USER_DIR = app.getPath('userData');
@@ -16,6 +17,7 @@ const LEGACY_CONFIG_PATH = path.join(__dirname, 'config.json');          // pre-
 const APPS_DIR = path.join(__dirname, '..', 'apps').replace('app.asar', 'app.asar.unpacked'); // unpacked when packaged
 const LED_DEFAULT = { effect: 1, brightness: 200, speed: 128, hue: 128, sat: 255 }; // ring lighting fallback (effect 1 = Solid Color)
 const DEFAULT_SETTINGS = { launchMode: 'editor', micOnLaunch: false, lighting: Object.assign({}, LED_DEFAULT) };
+const actionDeps = { fs, shell, exec, execFile, spawn, log: message => console.log(message) };
 let firstRun = false;     // set by loadConfig when there was no prior config (fresh install)
 let micState = false;     // current device mic state (LED follows it)
 let lastRingEffect = LED_DEFAULT.effect; // remembered so the tray on/off toggle can restore the prior effect
@@ -232,16 +234,10 @@ async function getAppIconDataUrl(value) {
 }
 
 // Turn an app value into a real file path: full paths used as-is; bare names resolved via `where`.
-function resolveAppPath(value) {
-  return new Promise(resolve => {
-    if (!value) return resolve(null);
-    if (/[\\/]/.test(value)) return resolve(fs.existsSync(value) ? value : null);
-    exec(`where "${value}"`, { windowsHide: true }, (err, stdout) => {
-      const first = (stdout || '').split(/\r?\n/).map(s => s.trim()).find(Boolean);
-      resolve(first && fs.existsSync(first) ? first : null);
-    });
-  });
-}
+function resolveAppPath(value) { return actionRunner.resolveAppPath(value, actionDeps); }
+function launchAppValue(value) { actionRunner.launchApp(value, actionDeps).catch(e => console.log('app launch error:', e.message)); }
+function runShellCommand(value) { return actionRunner.runShellCommand(value, actionDeps); }
+function lockWorkstation() { return actionRunner.lockWorkstation(actionDeps); }
 
 function runAction(a) {
   if (!a || !a.type) return;
@@ -250,12 +246,12 @@ function runAction(a) {
   try {
     switch (a.type) {
       case 'url': openExternalUrl(a.value); break;
-      case 'app': exec(`start "" "${a.value}"`, { windowsHide: true }); break;
-      case 'cmd': exec(a.value, { windowsHide: true }); break;
+      case 'app': launchAppValue(a.value); break;
+      case 'cmd': runShellCommand(a.value); break;
       case 'open': shell.openPath(a.value); break;
       case 'page': gotoGrid(a.value, true); if (rotateRunning) scheduleRotation(); break;   // switch the panel to another page
       case 'system':
-        if (a.value === 'lock') exec('rundll32.exe user32.dll,LockWorkStation');
+        if (a.value === 'lock') lockWorkstation();
         else if (a.value === 'mic') toggleMic();
         break;
     }

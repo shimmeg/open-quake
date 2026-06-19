@@ -11,6 +11,7 @@
   "scripts": {
     "start": "electron .",
     "security:baseline": "node scripts/security/check-open-quake-security.mjs",
+    "security:actions": "node scripts/security/test-action-runner.mjs",
     "rebuild": "electron-rebuild -f",
     "dist": "electron-builder --win"
   },
