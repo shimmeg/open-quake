@@ -45,9 +45,11 @@ and drops the resulting text into the chat input and sends it. A **🎤 listenin
 while you hold; **… transcribing** on release.
 
 Requirements:
-- **OWUI's Speech-to-Text must be local Whisper** — it's the default. Check in
-  **Admin Panel → Settings → Audio → Speech-to-Text** (engine = Local / Whisper, pick a model
-  like `base`/`small`). Token-free, runs in your OWUI container; no separate service.
+- **OWUI's Speech-to-Text — tested with local Whisper; other STT engines should work.** open-quake
+  just posts the audio to OWUI's transcription endpoint and OWUI picks the engine, so whatever STT
+  you've configured handles it — only local Whisper is verified, though. Local Whisper is OWUI's
+  default: **Admin Panel → Settings → Audio → Speech-to-Text** (engine = Local / Whisper, pick a
+  model like `base`/`small`). Token-free, runs in your OWUI container; no separate service.
 - **The device mic must be on** (tray → mic, or "on at launch" in [Settings](settings.md)).
 - The transcription endpoint is derived from your chat URL's host as
   `…/api/v1/audio/transcriptions` — so the same host serves chat and voice.
