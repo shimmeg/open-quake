@@ -18,6 +18,20 @@ software running.
 publish ready-to-install macOS release artifacts; run it locally from source for
 testing and development. See [Run locally on macOS](#run-locally-on-macos).
 
+## What this fork changes
+
+- Makes macOS the primary local-development target while keeping the original
+  Windows paths available where practical.
+- Adds security hardening around Electron renderer isolation, dashboard
+  permissions, external URL handling, command execution, and Open WebUI secret
+  handling.
+- Adds automated security/documentation guards under `npm run security:*` so
+  high-risk behavior is checked before commits.
+- Updates default pages and local run instructions for macOS source use, without
+  claiming a ready-to-install macOS release exists yet.
+- Keeps the original DK-QUAKE / ARIS-68 driver and protocol work from upstream,
+  with the same license boundary called out below.
+
 > **Switching pages:** the panel shows one page at a time — **double-click the knob** to open the page selector, rotate to highlight a page, then press to switch. open-quake shows this tip right on the panel the first time you launch it.
 
 It gives you:
