@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('openQuakeConfig', {
   pickProgram() { return ipcRenderer.invoke('pickProgram'); },
   pickImage() { return ipcRenderer.invoke('pickImage'); },
   getAppIcon(value) { return ipcRenderer.invoke('getAppIcon', value); },
+  fetchIconUrl(url) { return ipcRenderer.invoke('fetchIconUrl', url); },
   getLighting() { return ipcRenderer.invoke('getLighting'); },
   setLighting(lighting) { ipcRenderer.send('setLighting', lighting); },
   saveLightingToDevice() { return ipcRenderer.invoke('saveLightingToDevice'); },

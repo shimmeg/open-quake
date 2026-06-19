@@ -7,8 +7,9 @@ list holds your **pages** — each is a tile **Grid**, a web **Dashboard**, or a
 
 On a grid page you can:
 - **Edit tiles** — label, action (app / URL / shell command / open file / system, or
-  **Go to open-quake page** to jump to another of your pages), and icon (emoji, the
-  program's own icon, or a custom image).
+  **Go to open-quake page** to jump to another of your pages), and icon: an **emoji**,
+  the program's **own icon**, a local **image** file, or an **image URL** — paste a link
+  and **Fetch**, and it's downloaded and cached so the icon works offline.
 - **Merge** — click a tile, **Shift-click** another to select a block, then **Merge**
   to show them as one larger button (Unmerge to split).
 - **Rearrange** — **drag-and-drop** to swap tiles; drag a merged block to move it
