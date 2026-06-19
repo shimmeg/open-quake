@@ -2,7 +2,7 @@
 
 A bundled **Open WebUI** app puts a full chat on the panel — type (or **talk**, by holding
 the knob) to your own LLM through an [Open WebUI](https://github.com/open-webui/open-webui)
-server (or any OpenAI-compatible endpoint, e.g. LiteLLM). Add it from the editor via
+server. Add it from the editor via
 **+ App → Open WebUI**. It's named for the provider so you can add other chat backends as
 their own apps later.
 
@@ -22,7 +22,6 @@ It must be the **chat-completions** endpoint, not the server root:
 
 - **Open WebUI:** `https://your-owui-host/api/chat/completions`
   (use **`/api/chat/completions`** — OWUI's `/v1/chat/completions` exists but rejects POST.)
-- **LiteLLM / generic OpenAI-compatible:** `http://your-host:4000/v1/chat/completions`
 
 ### The API key
 
@@ -75,8 +74,8 @@ loopback origin). The bundled widget is the
 ## Troubleshooting
 
 - **"Error retrieving response"** — the server replied, but with no answer. Almost always a
-  **wrong model** (blank → `gpt-4o-mini`) or the **wrong path** (use `/api/chat/completions` for
-  OWUI, `/v1/chat/completions` for LiteLLM). The page setup message also shows if the URL/key
+  **wrong model** (blank → `gpt-4o-mini`) or the **wrong path** (use `/api/chat/completions`, not
+  `/v1/chat/completions`). The page setup message also shows if the URL/key
   aren't set.
 - **Voice does nothing on hold** — make sure you're on the chat page; the device mic is on; and
   OWUI's STT is set to local Whisper.
