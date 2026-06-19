@@ -102,6 +102,47 @@ function onMusicLaunch(i) {
   return false;
 }
 function hostMatches(a, b) { try { return new URL(a).host === new URL(b).host; } catch (e) { return false; } }
+function allowedExternalUrl(value) {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : null;
+  } catch (e) {
+    return null;
+  }
+}
+function openExternalUrl(value) {
+  const url = allowedExternalUrl(value);
+  if (!url) return false;
+  shell.openExternal(url).catch(e => console.log('openExternal error:', e.message));
+  return true;
+}
+function trustedMediaOrigins() {
+  const raw = appSettings().trustedMediaOrigins;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(origin => {
+    try { return new URL(origin).origin; } catch (e) { return null; }
+  }).filter(Boolean);
+}
+function isLocalChatUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' && url.hostname === '127.0.0.1' && Number(url.port) === serverPort && url.pathname === '/chat';
+  } catch (e) {
+    return false;
+  }
+}
+function isTrustedMediaRequest(wc, details) {
+  const requestingUrl = (details && (details.requestingUrl || details.securityOrigin)) || (wc && wc.getURL && wc.getURL()) || '';
+  if (details && Array.isArray(details.mediaTypes) && !details.mediaTypes.includes('audio')) return false;
+  if (isLocalChatUrl(requestingUrl)) return true;
+  try { return trustedMediaOrigins().includes(new URL(requestingUrl).origin); }
+  catch (e) { return false; }
+}
+function handleDashboardPermissionRequest(wc, permission, cb, details) {
+  if (permission === 'media' && isTrustedMediaRequest(wc, details)) return cb(true);
+  return cb(false);
+}
 
 // Bundled local apps (apps/apps.json) — name, file, and an options schema the editor renders.
 function loadApps() {
@@ -208,7 +249,7 @@ function runAction(a) {
   console.log('launch:', a.label, '->', a.type, a.value);
   try {
     switch (a.type) {
-      case 'url': shell.openExternal(a.value); break;
+      case 'url': openExternalUrl(a.value); break;
       case 'app': exec(`start "" "${a.value}"`, { windowsHide: true }); break;
       case 'cmd': exec(a.value, { windowsHide: true }); break;
       case 'open': shell.openPath(a.value); break;
@@ -405,7 +446,7 @@ app.whenReady().then(async () => {
   //  - 'basic'   -> answer HTTP Basic Auth challenges with the configured user/pass
   // ('ha' token injection is done renderer-side; 'none' does nothing.)
   const dashSession = session.fromPartition('persist:dashboards');
-  dashSession.setPermissionRequestHandler((wc, permission, cb) => cb(true));   // local trusted panel: allow mic (push-to-talk) etc.
+  dashSession.setPermissionRequestHandler(handleDashboardPermissionRequest);
   dashSession.webRequest.onBeforeSendHeaders((details, cb) => {
     const g = activeGrid();
     if (g && g.kind === 'web' && g.auth && g.auth.type === 'header' && hostMatches(g.url, details.url)) {
@@ -430,7 +471,7 @@ app.whenReady().then(async () => {
   ipcMain.on('toggleRotation', () => toggleRotation());
   ipcMain.on('openConfig', () => openConfigWindow());
   ipcMain.on('introDone', () => { config.introShown = true; saveConfig(); });   // remember the intro was dismissed
-  ipcMain.on('openExternal', (e, url) => { try { if (typeof url === 'string' && /^https?:/i.test(url)) shell.openExternal(url); } catch (er) {} });
+  ipcMain.on('openExternal', (e, url) => { openExternalUrl(url); });
   ipcMain.handle('getConfig', () => config);
   ipcMain.handle('getApps', () => loadApps());
   ipcMain.on('saveConfigFromEditor', (e, newCfg) => {
