@@ -12,8 +12,12 @@
     "start": "electron .",
     "security:baseline": "node scripts/security/check-open-quake-security.mjs",
     "security:actions": "node scripts/security/test-action-runner.mjs",
+    "security:macos": "node scripts/security/check-macos-build-config.mjs",
     "rebuild": "electron-rebuild -f",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --mac",
+    "dist:mac": "electron-builder --mac",
+    "dist:mac:dir": "electron-builder --mac dir",
+    "dist:win": "electron-builder --win"
   },
   "license": "SEE LICENSE IN LICENSE",
   "keywords": [
@@ -54,13 +58,32 @@
       "apps/**/*",
       "**/*.node"
     ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "open-quake-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "open-quake records audio only while push-to-talk is held, then sends that clip to your configured Open WebUI transcription endpoint.",
+        "NSHumanReadableCopyright": "Copyright TeeJS and contributors"
+      }
+    },
+    "dmg": {
+      "artifactName": "open-quake-${version}-${arch}.${ext}"
+    },
     "win": {
       "target": [
         "portable",
         "nsis"
       ],
-      "icon": "app/icon.png",
-      "sign": "./sign.js"
+      "icon": "app/icon.png"
     },
     "portable": {
       "artifactName": "open-quake-${version}-portable.${ext}"
