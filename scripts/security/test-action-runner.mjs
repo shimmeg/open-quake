@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -21,6 +22,7 @@ function deps(overrides = {}) {
         return Boolean(overrides.exists && overrides.exists(file));
       },
     },
+    platform: overrides.platform || 'win32',
     exec(command, options) {
       calls.push({ fn: 'exec', command, options });
     },
@@ -119,6 +121,60 @@ function deps(overrides = {}) {
     args: ['user32.dll,LockWorkStation'],
     options: { windowsHide: true },
   }]);
+}
+
+{
+  const d = deps({ platform: 'darwin' });
+
+  const launched = await launchApp('Safari', d);
+
+  assert.equal(launched, true);
+  assert.deepEqual(d.calls.find(c => c.fn === 'execFile'), {
+    fn: 'execFile',
+    file: '/usr/bin/open',
+    args: ['-a', 'Safari'],
+    options: {},
+  });
+  assert.equal(d.calls.some(c => c.fn === 'exec'), false);
+  assert.equal(d.calls.some(c => c.fn === 'spawn'), false);
+}
+
+{
+  const appPath = '/Applications/Visual Studio Code.app';
+  const d = deps({ platform: 'darwin', exists: file => file === appPath });
+
+  const launched = await launchApp(appPath, d);
+
+  assert.equal(launched, true);
+  assert.deepEqual(d.calls.filter(c => c.fn === 'openPath'), [{ fn: 'openPath', file: appPath }]);
+  assert.equal(d.calls.some(c => c.fn === 'exec'), false);
+}
+
+{
+  const d = deps({ platform: 'darwin' });
+
+  assert.equal(lockWorkstation(d), true);
+
+  assert.deepEqual(d.calls, [{
+    fn: 'execFile',
+    file: '/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession',
+    args: ['-suspend'],
+    options: {},
+  }]);
+}
+
+{
+  const config = JSON.parse(fs.readFileSync(new URL('../../app/config.default.json', import.meta.url), 'utf8'));
+  const tiles = (config.grids || []).flatMap(g => g.tiles || []);
+  const appValues = tiles.filter(t => t && t.type === 'app').map(t => t.value);
+  const cmdTiles = tiles.filter(t => t && t.type === 'cmd');
+  const forbiddenWindowsValues = new Set(['msedge', 'explorer', 'notepad', 'calc', 'taskmgr', 'wt', 'snippingtool', 'mspaint', 'control', 'obs64']);
+
+  assert.equal(cmdTiles.length, 0, 'macOS default config must not seed shell-command tiles');
+  assert.equal(appValues.some(value => forbiddenWindowsValues.has(value)), false, 'macOS default config must not seed Windows-only app launch values');
+  assert.ok(appValues.includes('Safari'), 'macOS default config should include Safari');
+  assert.ok(appValues.includes('Finder'), 'macOS default config should include Finder');
+  assert.ok(appValues.includes('System Settings'), 'macOS default config should include System Settings');
 }
 
 console.log('Action runner security tests passed.');
