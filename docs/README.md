@@ -15,4 +15,5 @@ Detailed guides for open-quake. Back to the [project README](../README.md).
 ## Under the hood
 
 - **[Building & how it works](building.md)** — hardware, build from source, code layout
+- **[Security hardening](security/open-quake-hardening.md)** — threat model, local secrets, release checks
 - **[Device protocol](DEVICE_PROTOCOL.md)** — the reverse-engineered HID protocol

@@ -21,4 +21,4 @@ ring, microphone):
   the tray menu or a **System → mic** tile.
 
 The ring is driven over the device's QMK VIA lighting channel; settings are stored in
-`%APPDATA%\open-quake` and re-applied on connect.
+`~/Library/Application Support/open-quake` on macOS and re-applied on connect.
