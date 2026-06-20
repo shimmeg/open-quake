@@ -1,5 +1,7 @@
 # open-quake
 
+> **Disclaimer:** open-quake is an independent third-party community project. It is not affiliated with, endorsed by, maintained by, verified by, certified by, or officially supported by DECOKEE. DK-Suite is the official software for DECOKEE Quake. open-quake is not an official open-source version of DK-Suite. Use of open-quake is at your own risk.
+
 This repository is a security-hardening, macOS-focused fork of
 [TeeJS/open-quake](https://github.com/TeeJS/open-quake). Thanks to **TeeJS** and
 the upstream contributors for creating and maintaining the original open-quake
