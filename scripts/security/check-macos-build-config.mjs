@@ -41,6 +41,8 @@ assert.ok(build.mac.extendInfo && build.mac.extendInfo.NSMicrophoneUsageDescript
 assert.ok(fs.existsSync(build.mac.entitlements), 'mac entitlements plist must exist');
 assert.ok(fs.existsSync('native/macos/open-quake-media-key.m'), 'macOS media-key helper source must exist');
 assert.ok((build.asarUnpack || []).includes('app/native/**'), 'macOS media-key helper must be unpacked so it can execute');
+const entitlementsSource = fs.readFileSync(build.mac.entitlements, 'utf8');
+assert.ok(entitlementsSource.includes('com.apple.security.device.audio-input'), 'mac entitlements must grant microphone (audio-input) access under hardened runtime');
 assert.equal(Object.prototype.hasOwnProperty.call(build.win || {}, 'sign'), false, 'deprecated win.sign must not block macOS electron-builder validation');
 const macIcon = pngSize(build.mac.icon);
 assert.ok(macIcon.width >= 512 && macIcon.height >= 512, 'mac icon must be at least 512x512 for electron-builder');

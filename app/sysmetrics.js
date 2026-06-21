@@ -88,7 +88,10 @@ async function pollMedium() {
     const all = proc.all;
     const running_ = Number.isFinite(proc.running) ? proc.running : null;
     const blocked = Number.isFinite(proc.blocked) ? proc.blocked : 0;
-    const sleeping = running_ != null ? Math.max(0, all - running_ - blocked) : null;   // Windows doesn't report it
+    // Windows doesn't report "sleeping" → derive it (all − running − blocked). macOS/Linux report it
+    // natively, so use systeminformation's value there when present.
+    const sleeping = (process.platform !== 'win32' && Number.isFinite(proc.sleeping)) ? proc.sleeping
+      : (running_ != null ? Math.max(0, all - running_ - blocked) : null);
     set('proc', { total: all, running: running_, blocked, sleeping });
   }
   if (batt) {
@@ -104,14 +107,27 @@ async function pollSlow() {
     safe(() => si.graphics()),
   ]);
   if (Array.isArray(fs)) {
+    const isWin = process.platform === 'win32';
+    // Windows: keep only drive-letter mounts (C:, D:, …) and label with the 2-char drive letter.
+    // POSIX (macOS/Linux): accept the root volume and external/mounted volumes under /Volumes; skip the
+    // synthetic /System/Volumes/* firmlinks (duplicates of /) and keep the FULL mount path as the label.
+    const keep = d => {
+      if (!d || !(d.size > 0)) return false;
+      const m = d.mount || d.fs || '';
+      if (isWin) return /^[A-Za-z]:/.test(m);
+      return m === '/' || m.startsWith('/Volumes/');
+    };
     const disks = fs
-      .filter(d => d && d.size > 0 && /^[A-Za-z]:/.test(d.mount || d.fs || ''))
-      .map(d => ({
-        mount: (d.mount || d.fs || '').slice(0, 2),
-        usedBytes: d.used,
-        totalBytes: d.size,
-        usePct: Number.isFinite(d.use) ? d.use : (d.size ? (d.used / d.size) * 100 : null),
-      }));
+      .filter(keep)
+      .map(d => {
+        const m = d.mount || d.fs || '';
+        return {
+          mount: isWin ? m.slice(0, 2) : m,
+          usedBytes: d.used,
+          totalBytes: d.size,
+          usePct: Number.isFinite(d.use) ? d.use : (d.size ? (d.used / d.size) * 100 : null),
+        };
+      });
     if (disks.length) set('disks', disks);
   }
   if (gfx && Array.isArray(gfx.controllers) && gfx.controllers.length) {
@@ -138,6 +154,7 @@ const GPU_LOAD_PS =
   + "ForEach-Object{($_.Group|Measure-Object UtilizationPercentage -Sum).Sum}|Measure-Object -Maximum).Maximum),1)}";
 const GPU_LOAD_B64 = Buffer.from(GPU_LOAD_PS, 'utf16le').toString('base64');
 async function gpuLoadGeneric() {
+  if (process.platform !== 'win32') return null;   // the generic load query is a Windows perf-counter PowerShell call
   const out = await execFileP('powershell.exe', ['-NoProfile', '-NonInteractive', '-InputFormat', 'None', '-EncodedCommand', GPU_LOAD_B64], 6000);
   if (!out) return null;
   const n = parseFloat(String(out).trim().split(/\r?\n/)[0]);
@@ -145,6 +162,7 @@ async function gpuLoadGeneric() {
 }
 
 async function detectNvidia() {
+  if (process.platform !== 'win32') return 'none';   // skip the nvidia-smi probe + System32 fallback (Windows-only)
   // Try the binary on PATH, then the driver's default System32 location.
   const fallback = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'nvidia-smi.exe');
   for (const bin of ['nvidia-smi', fallback]) {
