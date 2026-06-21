@@ -15,6 +15,7 @@
     "security:actions": "node scripts/security/test-action-runner.mjs && node scripts/security/test-media-keys.mjs",
     "security:macos": "node scripts/security/check-macos-build-config.mjs",
     "security:docs": "node scripts/security/check-macos-docs.mjs",
+    "test:clock-layout": "node scripts/test-clock-layout.mjs",
     "rebuild": "electron-rebuild -f",
     "build:smtc": "node build-smtc.js",
     "dist": "electron-builder --mac",
