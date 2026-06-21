@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const mainSource = fs.readFileSync('app/main.js', 'utf8');
 const build = pkg.build || {};
 
 function pngSize(file) {
@@ -35,5 +36,7 @@ assert.ok(macIcon.width >= 512 && macIcon.height >= 512, 'mac icon must be at le
 
 assert.ok(/open-quake-\$\{version\}-\$\{arch\}\.\$\{ext\}/.test(build.mac.artifactName), 'mac artifact name must include version and arch');
 assert.ok(build.dmg && /open-quake-\$\{version\}-\$\{arch\}\.\$\{ext\}/.test(build.dmg.artifactName), 'dmg artifact name must include version and arch');
+assert.match(mainSource, /panelWin\.setMenuBarVisibility\(false\)/, 'panel window must hide the macOS/Electron menu bar');
+assert.match(mainSource, /panelWin\.setSimpleFullScreen\(true\)/, 'panel window must enter fullscreen on the device display');
 
 console.log('macOS build config checks passed.');

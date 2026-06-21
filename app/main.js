@@ -363,13 +363,21 @@ function mediaKey(cmd) {
 function deviceDisplay() {
   return screen.getAllDisplays().find(d => (d.bounds.width === 480 && d.bounds.height === 1920) || (d.bounds.width === 1920 && d.bounds.height === 480));
 }
+function applyPanelDisplayMode(d) {
+  panelWin.setBounds(d.bounds);
+  panelWin.setMenuBarVisibility(false);
+  if (process.platform === 'darwin') panelWin.setSimpleFullScreen(true);
+  else panelWin.setFullScreen(true);
+}
 function placePanel() {
   const d = deviceDisplay();
   if (!d) { console.log('placePanel: DK-QUAKE display not present'); return; }
   if (!panelWin || panelWin.isDestroyed()) {
     panelWin = new BrowserWindow({
       x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
-      frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
+      frame: false, show: false, skipTaskbar: true, resizable: false, movable: false,
+      minimizable: false, maximizable: false, fullscreenable: true, autoHideMenuBar: true,
+      backgroundColor: '#000000',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -380,12 +388,13 @@ function placePanel() {
     panelWin.loadFile(path.join(__dirname, 'index.html'));
     panelWin.once('ready-to-show', () => {
       const dd = deviceDisplay() || d;
-      panelWin.setBounds(dd.bounds); panelWin.setAlwaysOnTop(true); panelWin.show(); panelWin.focus();
+      applyPanelDisplayMode(dd); panelWin.setAlwaysOnTop(true); panelWin.show(); panelWin.focus();
       setTimeout(() => panelWin.setAlwaysOnTop(false), 1500);
       pushToPanel();
-      console.log('panel placed at', JSON.stringify(panelWin.getBounds()));
+      console.log('panel display bounds', JSON.stringify(dd.bounds), 'workArea', JSON.stringify(dd.workArea));
+      console.log('panel placed at', JSON.stringify(panelWin.getBounds()), 'fullscreen', panelWin.isFullScreen(), 'simpleFullscreen', panelWin.isSimpleFullScreen && panelWin.isSimpleFullScreen());
     });
-  } else { panelWin.setBounds(d.bounds); panelWin.show(); pushToPanel(); }
+  } else { applyPanelDisplayMode(d); panelWin.show(); pushToPanel(); }
 }
 
 function openConfigWindow() {
