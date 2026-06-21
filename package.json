@@ -12,7 +12,7 @@
     "start": "electron .",
     "start:win": "node build-smtc.js && electron .",
     "security:baseline": "node scripts/security/check-open-quake-security.mjs",
-    "security:actions": "node scripts/security/test-action-runner.mjs",
+    "security:actions": "node scripts/security/test-action-runner.mjs && node scripts/security/test-media-keys.mjs",
     "security:macos": "node scripts/security/check-macos-build-config.mjs",
     "security:docs": "node scripts/security/check-macos-docs.mjs",
     "rebuild": "electron-rebuild -f",
