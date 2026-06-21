@@ -115,7 +115,7 @@
     for (var i = 0; i < n; i++){
       var t = tiles[i];
       if (t && t.type && t.cover == null){
-        var ic = t.iconSrc ? '<div class="ic"><img src="' + t.iconSrc + '"></div>' : '<div class="ic">' + (t.icon || '▫️') + '</div>';
+        var ic = t.iconSrc ? '<div class="ic"><img src="' + esc(t.iconSrc) + '"></div>' : '<div class="ic">' + esc(t.icon || '▫️') + '</div>';
         html += '<div class="tile" data-i="' + i + '">' + ic + '<div class="lb">' + esc(t.label || '') + '</div></div>';
       } else {
         html += '<div class="tile empty"></div>';

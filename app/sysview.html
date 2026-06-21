@@ -149,6 +149,8 @@
 <script>
   var CIRC = 376.991;   // 2·π·60
   function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function num(v){ return (v == null || !isFinite(v)) ? null : v; }
   function pct(v){ return v == null ? '—' : Math.round(v) + '%'; }
   function temp(v){ return v == null ? '—' : Math.round(v) + '°'; }
@@ -167,7 +169,7 @@
     host.innerHTML = disks.map(function(d){
       var p = num(d.usePct);
       var col = p==null ? '#2a3a4d' : (p>90 ? '#ff6b6b' : p>75 ? '#ffb454' : '#7CFFB2');
-      return '<div class="drow"><div class="dhead"><span class="k">' + (d.mount||'?') + '</span>'
+      return '<div class="drow"><div class="dhead"><span class="k">' + esc(d.mount||'?') + '</span>'
         + '<span class="v">' + bstr(d.usedBytes) + ' / ' + bstr(d.totalBytes) + ' · ' + pct(p) + '</span></div>'
         + '<div class="bar"><div class="barfill" style="width:' + (p==null?0:Math.min(100,p)) + '%;background:' + col + '"></div></div></div>';
     }).join('');

@@ -47,6 +47,10 @@ function artMime(b64) {   // sniff the format from the base64 head so the data: 
 function fetchArt(key, track) {
   if (artBusy || (key in artCache)) return;   // one fetch at a time; never re-fetch a known track
   artBusy = true;
+  if (process.platform !== 'win32') {   // smtc-art.exe is Windows-only — skip it, go straight to the iTunes fallback
+    lookupArtOnline(track, url => { artCache[key] = url || null; artBusy = false; });
+    return;
+  }
   execFile(ART_EXE, [], { windowsHide: true, timeout: 4000, maxBuffer: 16 * 1024 * 1024 }, (err, stdout) => {
     const b64 = (!err && stdout) ? String(stdout).trim() : '';
     if (b64) { artCache[key] = 'data:' + artMime(b64) + ';base64,' + b64; artBusy = false; return; }
@@ -85,6 +89,7 @@ function lookupArtOnline(track, cb) {
 }
 
 function poll() {
+  if (process.platform !== 'win32') return Promise.resolve(null);   // SMTC is Windows-only; never spawn powershell elsewhere
   return new Promise(resolve => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-InputFormat', 'None', '-EncodedCommand', SMTC_B64],
       { windowsHide: true, timeout: 6000 }, (err, stdout) => {

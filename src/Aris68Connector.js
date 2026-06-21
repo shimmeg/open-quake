@@ -28,6 +28,11 @@
  */
 const EventEmitter = require('events');
 
+// macOS needs the HID device opened non-exclusively (other apps/the OS may hold it) and writes
+// retried (the IOHIDDevice queue can transiently reject a write). See ../docs/DEVICE_PROTOCOL.md §2.
+const IS_DARWIN = process.platform === 'darwin';
+const MAC_WRITE_RETRIES = 3;
+
 // [vendorId, productId, usagePage] — first match wins.
 const CONTROL_IFACES = [[16728, 20811, 0xff60], [20498, 26647, 0xff60]]; // QUAKE / ARIS-68 control
 const TOUCH_IFACES = [[1810, 16, 0xff73]];                               // hotlotus touch
@@ -81,11 +86,17 @@ class Aris68Connector extends EventEmitter {
     return null;
   }
 
+  // Open a HID device by path. On macOS pass { nonExclusive: true } (node-hid ^3.3.0 forwards a
+  // trailing options object to the native binding); other platforms keep the single-arg open.
+  _openHid(path) {
+    return IS_DARWIN ? new this.HID.HID(path, { nonExclusive: true }) : new this.HID.HID(path);
+  }
+
   _open() {
     if (!this.ctrl) {
       const info = this._find(CONTROL_IFACES);
       if (info) try {
-        const d = new this.HID.HID(info.path); this.ctrl = d;
+        const d = this._openHid(info.path); this.ctrl = d;
         d.on('data', b => this._onCtrl(b));
         d.on('error', () => this._closeCtrl());
         this.emit('connect', { iface: 'control', info });
@@ -95,7 +106,7 @@ class Aris68Connector extends EventEmitter {
     if (!this.touch) {
       const info = this._find(TOUCH_IFACES);
       if (info) try {
-        const d = new this.HID.HID(info.path); this.touch = d;
+        const d = this._openHid(info.path); this.touch = d;
         d.on('data', b => this._onTouch(b));
         d.on('error', () => this._closeTouch());
         this.emit('connect', { iface: 'touch', info });
@@ -107,7 +118,20 @@ class Aris68Connector extends EventEmitter {
   _closeTouch() { if (this.touch) { try { this.touch.close(); } catch (e) {} this.touch = null; this.emit('disconnect', { iface: 'touch' }); } }
 
   // ---- outgoing commands (all written to the control interface, report-id 0x00 prefixed) ----
-  _send(frame) { if (this.ctrl) { try { this.ctrl.write([0x00, ...frame]); return true; } catch (e) { this.emit('error', e); this._closeCtrl(); } } return false; }
+  // Write a raw report to the control interface. On macOS retry up to MAC_WRITE_RETRIES times before
+  // treating it as a failure (the IOHIDDevice write queue can transiently reject); on other platforms
+  // keep the single-attempt behavior. Returns true on success, false (after close+error) on failure.
+  _writeCtrl(report) {
+    if (!this.ctrl) return false;
+    const attempts = IS_DARWIN ? MAC_WRITE_RETRIES : 1;
+    let lastErr = null;
+    for (let i = 0; i < attempts; i++) {
+      try { this.ctrl.write(report); return true; } catch (e) { lastErr = e; }
+    }
+    this.emit('error', lastErr); this._closeCtrl();
+    return false;
+  }
+  _send(frame) { return this._writeCtrl([0x00, ...frame]); }
   screenOn() { return this._send(FR.SCREEN_ON); }
   screenOff() { return this._send(FR.SCREEN_OFF); }
   ping() { return this._send(FR.PING); }
@@ -128,7 +152,7 @@ class Aris68Connector extends EventEmitter {
     if (!this.ctrl) return false;
     const r = new Array(33).fill(0); r[0] = 0x00; r[1] = command & 0xFF;
     data.forEach((b, i) => { r[2 + i] = b & 0xFF; });
-    try { this.ctrl.write(r); return true; } catch (e) { this.emit('error', e); this._closeCtrl(); return false; }
+    return this._writeCtrl(r);   // macOS retry / single-attempt elsewhere (see _writeCtrl)
   }
   setLedBrightness(v) { return this._via(0x07, [RGB_MATRIX_CH, 0x01, v & 0xFF]); }      // device quantizes; max ~247
   setLedEffect(i) { return this._via(0x07, [RGB_MATRIX_CH, 0x02, i & 0xFF]); }          // 0=All Off … 43 (RGB-Matrix list)

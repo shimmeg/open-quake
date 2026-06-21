@@ -62,7 +62,9 @@ function runShellCommand(value, deps) {
 function lockWorkstation(deps) {
   const platform = platformOf(deps);
   if (platform === 'darwin') {
-    deps.execFile('/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession', ['-suspend'], hiddenOptions(platform), () => {});
+    // The old CGSession binary was removed on modern macOS. `pmset displaysleepnow` needs no special
+    // permission and locks the screen when the user has "require password after sleep/screensaver" on.
+    deps.execFile('/usr/bin/pmset', ['displaysleepnow'], hiddenOptions(platform), () => {});
     return true;
   }
   deps.execFile('rundll32.exe', ['user32.dll,LockWorkStation'], hiddenOptions(platform), () => {});

@@ -157,8 +157,8 @@ function deps(overrides = {}) {
 
   assert.deepEqual(d.calls, [{
     fn: 'execFile',
-    file: '/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession',
-    args: ['-suspend'],
+    file: '/usr/bin/pmset',
+    args: ['displaysleepnow'],
     options: {},
   }]);
 }

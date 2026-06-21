@@ -221,6 +221,45 @@ if (!/server\.listen\s*\(\s*0\s*,\s*['"]127\.0\.0\.1['"]/.test(sysserver)) {
   fail('sysserver-loopback', 'app/sysserver.js must keep sysserver.listen bound to 127.0.0.1');
 }
 
+// --- Tier 1 hardening regression guards (XSS / CSRF / IPC sender validation) ---
+
+// Panel renderer must build tiles via DOM/textContent, never interpolate config-controlled
+// label/icon into innerHTML (stored-XSS -> openQuakePanel.launch() command-execution vector).
+const indexHtml = read('app/index.html');
+if (/innerHTML[^\n;]*\$\{[^}]*\bt\.(label|icon)\b/.test(indexHtml)) {
+  fail('panel-tile-xss', 'app/index.html must not interpolate tile label/icon into innerHTML');
+}
+if (!/\.textContent\s*=\s*t\.label/.test(indexHtml)) {
+  fail('panel-tile-xss', 'app/index.html must render the tile label via textContent');
+}
+
+// Served Music grid must escape config-controlled icon fields before HTML insertion.
+const musicHtml = read('app/musicview.html');
+if (!/esc\(t\.iconSrc\)/.test(musicHtml) || !/esc\(t\.icon\b/.test(musicHtml)) {
+  fail('music-tile-xss', 'app/musicview.html must escape t.iconSrc / t.icon before HTML insertion');
+}
+
+// Localhost server must reject a foreign Host (DNS rebinding) on every route and require a
+// same-origin request for the side-effecting / data / secret routes (CSRF guard).
+if (!/function hostOk\s*\(/.test(sysserver) || !/if \(!hostOk\(req\)\)/.test(sysserver)) {
+  fail('sysserver-host-guard', 'app/sysserver.js must reject requests whose Host is not the loopback origin');
+}
+if (!/sec-fetch-site/.test(sysserver) || !/if \(!sameOrigin\(req\)\)/.test(sysserver)) {
+  fail('sysserver-csrf-guard', 'app/sysserver.js must require a same-origin request for side-effecting/secret routes');
+}
+if (/if \(!origin\)\s*return true/.test(sysserver)) {
+  fail('sysserver-csrf-guard', 'app/sysserver.js sameOrigin() must fail closed when both Origin and Sec-Fetch-Site are absent');
+}
+
+// Privileged IPC channels must validate the sender window (panel vs editor) before acting.
+if (!/function isFrom\s*\(/.test(main)) {
+  fail('ipc-sender-validation', 'app/main.js must define an isFrom() sender check');
+}
+for (const ch of ['launch', 'saveConfigFromEditor', 'getConfig', 'fetchIconUrl']) {
+  const re = new RegExp(`ipcMain\\.(?:on|handle)\\('${ch}'[\\s\\S]{0,160}?isFrom\\(`);
+  if (!re.test(main)) fail('ipc-sender-validation', `app/main.js ipc '${ch}' handler must validate the sender via isFrom()`);
+}
+
 if (failures.length) {
   console.error(`Security baseline failed: ${failures.length} issue(s)`);
   for (const failure of failures) {

@@ -31,6 +31,10 @@ let config = loadConfig();
 let panelWin = null, configWin = null, tray = null;
 const dev = new Aris68Connector({ hid: HID });
 function appSettings() { return Object.assign({}, DEFAULT_SETTINGS, config.settings || {}); }
+// IPC hardening: only accept a channel from the window that legitimately owns it. The panel hosts a
+// <webview> of arbitrary dashboard pages (its own separate webContents), so comparing against
+// panelWin.webContents rejects any guest page — or stray sender — that reaches the preload bridge.
+function isFrom(e, win) { return !!(win && !win.isDestroyed() && e.sender === win.webContents); }
 
 // User config lives in the OS user-data dir (writable even inside a packaged app). On first run it's
 // seeded from a previous dev config (app/config.json) if present, otherwise the bundled default.
@@ -333,7 +337,8 @@ function runShellCommand(value) { return actionRunner.runShellCommand(value, act
 function lockWorkstation() { return actionRunner.lockWorkstation(actionDeps); }
 
 function runAction(a) {
-  if (!a || !a.type) return;
+  if (!a || typeof a.type !== 'string') return;
+  if (a.value != null && typeof a.value !== 'string') return;   // value, when present, is always a string (url/app/cmd/open/page/system)
   if (a.type === 'system' && a.value === 'config') return openConfigWindow();
   console.log('launch:', a.label, '->', a.type, a.value);
   try {
@@ -560,16 +565,17 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.on('launch', (e, a) => runAction(a));
-  ipcMain.on('volume', (e, v) => { mediaKeys.volume(v); });
-  ipcMain.on('switchGrid', (e, id) => { gotoGrid(id, true); if (rotateRunning) scheduleRotation(); });   // a manual pick resets the rotation timer
-  ipcMain.on('toggleRotation', () => toggleRotation());
-  ipcMain.on('openConfig', () => openConfigWindow());
-  ipcMain.on('introDone', () => { config.introShown = true; saveConfig(); });   // remember the intro was dismissed
-  ipcMain.on('openExternal', (e, url) => { openExternalUrl(url); });
-  ipcMain.handle('getConfig', () => config);
-  ipcMain.handle('getApps', () => loadApps());
+  ipcMain.on('launch', (e, a) => { if (!isFrom(e, panelWin)) return; runAction(a); });
+  ipcMain.on('volume', (e, v) => { if (!isFrom(e, panelWin)) return; mediaKeys.volume(v); });
+  ipcMain.on('switchGrid', (e, id) => { if (!isFrom(e, panelWin)) return; gotoGrid(id, true); if (rotateRunning) scheduleRotation(); });   // a manual pick resets the rotation timer
+  ipcMain.on('toggleRotation', (e) => { if (!isFrom(e, panelWin)) return; toggleRotation(); });
+  ipcMain.on('openConfig', (e) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openConfigWindow(); });
+  ipcMain.on('introDone', (e) => { if (!isFrom(e, panelWin)) return; config.introShown = true; saveConfig(); });   // remember the intro was dismissed
+  ipcMain.on('openExternal', (e, url) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openExternalUrl(url); });
+  ipcMain.handle('getConfig', (e) => isFrom(e, configWin) ? config : null);
+  ipcMain.handle('getApps', (e) => isFrom(e, configWin) ? loadApps() : []);
   ipcMain.on('saveConfigFromEditor', (e, newCfg) => {
+    if (!isFrom(e, configWin) || !newCfg || typeof newCfg !== 'object' || !Array.isArray(newCfg.grids)) return;
     const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
     const wasRot = rotationCfg().enabled;                        // detect a fresh off->on to auto-start (else keep the runtime pause)
     config = newCfg;
@@ -577,25 +583,32 @@ app.whenReady().then(async () => {
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
     saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot);
   });
-  ipcMain.handle('pickProgram', async () => {
-    const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }] });
+  ipcMain.handle('pickProgram', async (e) => {
+    if (!isFrom(e, configWin)) return null;
+    const filters = process.platform === 'darwin'
+      ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
+      : [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }];
+    const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
   });
-  ipcMain.handle('pickImage', async () => {
+  ipcMain.handle('pickImage', async (e) => {
+    if (!isFrom(e, configWin)) return null;
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] }, { name: 'All Files', extensions: ['*'] }] });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
   });
-  ipcMain.handle('getAppIcon', (e, value) => getAppIconDataUrl(value));
-  ipcMain.handle('fetchIconUrl', (e, url) => fetchIconToCache(url));
+  ipcMain.handle('getAppIcon', (e, value) => isFrom(e, configWin) ? getAppIconDataUrl(value) : null);
+  ipcMain.handle('fetchIconUrl', (e, url) => isFrom(e, configWin) ? fetchIconToCache(url) : { ok: false, error: 'unauthorized' });
 
   // Knob RGB ring (QMK VIA). The editor's Settings page reads the device's current lighting, then
   // applies each change live; "Save to device" persists it to the device's own flash.
-  ipcMain.handle('getLighting', async () => {
+  ipcMain.handle('getLighting', async (e) => {
+    if (!isFrom(e, configWin)) return null;
     let cur = null;
-    try { cur = await dev.getLighting(); } catch (e) {}
+    try { cur = await dev.getLighting(); } catch (er) {}
     return Object.assign({}, lighting(), cur && Object.keys(cur).length ? cur : {});
   });
   ipcMain.on('setLighting', (e, L) => {
+    if (!isFrom(e, configWin)) return;
     if (!L) return;
     if (!config.settings) config.settings = {};
     config.settings.lighting = Object.assign({}, lighting(), L);
@@ -609,7 +622,7 @@ app.whenReady().then(async () => {
     } catch (er) {}
     refreshTray();
   });
-  ipcMain.handle('saveLightingToDevice', () => { try { return dev.saveLighting(); } catch (e) { return false; } });
+  ipcMain.handle('saveLightingToDevice', (e) => { if (!isFrom(e, configWin)) return false; try { return dev.saveLighting(); } catch (er) { return false; } });
 
   placePanel();
   if (rotationCfg().enabled) setRotation(true);          // auto-start cycling on launch when enabled
