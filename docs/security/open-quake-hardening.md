@@ -48,11 +48,13 @@ guarded by `npm run security:actions`.
 
 ## Native Input Surface
 
-`robotjs` is currently scoped to fixed media-key and volume/mute events for the
-Music page and knob volume controls. It is not used for arbitrary mouse or
-keyboard automation. Replacing it with a narrower macOS media backend remains a
-follow-up because global media-key behavior needs a reliable macOS-specific
-implementation and should not break the launcher.
+`app/mediaKeys.js` is the narrow media-key adapter for the Music page and knob
+volume controls. Its current backend is `robotjs`, but the rest of the main
+process only asks for fixed media transport and volume/mute commands. It is not
+used for arbitrary mouse or keyboard automation. Replacing the backend with a
+narrower macOS implementation remains a follow-up because global media-key
+behavior needs a reliable macOS-specific implementation and should not break the
+launcher.
 
 ## Dashboard Permissions
 
