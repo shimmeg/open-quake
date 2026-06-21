@@ -174,15 +174,15 @@
   // icon HTML for a tile in a given context: 'cell' (grid preview) or 'prev' (big preview)
   function iconHtml(t, ctx) {
     const type = iconTypeOf(t);
-    if (type === 'image' && t.iconImage) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${fileUrl(t.iconImage)}">`;
-    if (type === 'url' && t.iconCache) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${urlSrc(t)}">`;
+    if (type === 'image' && t.iconImage) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${esc(fileUrl(t.iconImage))}">`;
+    if (type === 'url' && t.iconCache) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${esc(urlSrc(t))}">`;
     if (type === 'app' && t.value) {
       const c = appIconCache[t.value];
-      if (c) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${c}">`;
+      if (c) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${esc(c)}">`;
       ensureAppIcon(t.value);                   // load + re-render; emoji fallback meanwhile
     }
     const em = t.icon || (type === 'app' ? '🚀' : '▫️');
-    return ctx === 'cell' ? `<div class="ic">${em}</div>` : `<span class="em">${em}</span>`;
+    return ctx === 'cell' ? `<div class="ic">${esc(em)}</div>` : `<span class="em">${esc(em)}</span>`;
   }
 
   // ---- left grid list ----
@@ -413,16 +413,16 @@
   function renderIconPreview(t) {
     const el = document.getElementById('iconpreview'); if (!el) return;
     const type = iconTypeOf(t);
-    if (type === 'image' && t.iconImage) el.innerHTML = `<img src="${fileUrl(t.iconImage)}">`;
-    else if (type === 'url' && t.iconCache) el.innerHTML = `<img src="${urlSrc(t)}">`;
+    if (type === 'image' && t.iconImage) el.innerHTML = `<img src="${esc(fileUrl(t.iconImage))}">`;
+    else if (type === 'url' && t.iconCache) el.innerHTML = `<img src="${esc(urlSrc(t))}">`;
     else if (type === 'url') el.innerHTML = `<span class="none">fetch an image URL to preview</span>`;
     else if (type === 'app' && t.value) {
       const c = appIconCache[t.value];
-      if (c) el.innerHTML = `<img src="${c}">`;
+      if (c) el.innerHTML = `<img src="${esc(c)}">`;
       else if (c === false) el.innerHTML = `<span class="none">couldn’t read icon — emoji shown instead</span>`;
       else { el.innerHTML = `<span class="none">resolving…</span>`; ensureAppIcon(t.value); }
     } else if (type === 'app') el.innerHTML = `<span class="none">no program set</span>`;
-    else el.innerHTML = t.icon ? `<span class="em">${t.icon}</span>` : `<span class="none">no emoji</span>`;
+    else el.innerHTML = t.icon ? `<span class="em">${esc(t.icon)}</span>` : `<span class="none">no emoji</span>`;
   }
 
   function valuePlaceholder(type) { return type === 'url' ? 'https://…' : type === 'app' ? 'chrome  (or full path)' : type === 'cmd' ? 'start ms-settings:' : type === 'system' ? 'lock  |  config  |  mic' : ''; }

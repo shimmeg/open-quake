@@ -20,7 +20,7 @@ const metrics = require('./sysmetrics');
 const nowplaying = require('./nowplaying');
 
 const FALLBACK = '<!doctype html><meta charset="utf-8">'
-  + '<body style="margin:0;background:#05080d;color:#9fb3c8;font:20px Segoe UI">page asset missing.</body>';
+  + '<body style="margin:0;background:#05080d;color:#9fb3c8;font:20px Segoe UI, sans-serif">page asset missing.</body>';
 const MEDIA_CMDS = { playpause: 1, next: 1, prev: 1 };
 const LOCAL_APP_CSP = [
   "default-src 'self' http: https: file: data: blob:",
@@ -44,8 +44,31 @@ function html(res, body) { res.writeHead(200, headers('text/html; charset=utf-8'
 function json(res, obj) { res.writeHead(200, headers('application/json; charset=utf-8')); res.end(JSON.stringify(obj)); }
 function done(res, ok) { res.writeHead(ok ? 200 : 400, headers('application/json')); res.end(JSON.stringify({ ok: !!ok })); }
 
+// Loopback-only hardening. The server binds 127.0.0.1, but a malicious web page (or a DNS-rebinding
+// hostname that resolves to 127.0.0.1) can still try to reach it. hostOk() rejects any request whose
+// Host header isn't our own loopback origin (the browser sets Host from the URL and JS can't forge it,
+// so this defeats DNS rebinding). sameOrigin() additionally requires that side-effecting / data /
+// secret routes come from our own served page (Sec-Fetch-Site, with an Origin fallback); the static
+// page + asset routes stay reachable by the panel webview's top-level navigation.
+function loopbackPort() { const a = server && server.address(); return a ? a.port : null; }
+function hostOk(req) {
+  const port = loopbackPort();
+  if (port == null) return false;
+  const host = req.headers.host;
+  return host === '127.0.0.1:' + port || host === 'localhost:' + port;
+}
+function sameOrigin(req) {
+  const site = req.headers['sec-fetch-site'];
+  if (site) return site === 'same-origin';                       // modern Chromium: only our own page's fetches
+  const origin = req.headers.origin;
+  if (!origin) return true;                                      // no Sec-Fetch + no Origin: same-origin GET (Host already checked)
+  try { const o = new URL(origin); return o.protocol === 'http:' && (o.hostname === '127.0.0.1' || o.hostname === 'localhost') && Number(o.port) === loopbackPort(); }
+  catch (e) { return false; }
+}
+
 async function handler(req, res) {
   if (req.method !== 'GET') { res.writeHead(405); res.end(); return; }
+  if (!hostOk(req)) { res.writeHead(403); res.end(); return; }   // foreign / DNS-rebinding Host -> reject (all routes)
   const full = req.url || '/';
   const url = full.split('?')[0];
   if (url === '/' || url === '/index.html') return html(res, sysHtml);
@@ -53,6 +76,10 @@ async function handler(req, res) {
   if (url === '/chat') return html(res, chatHtml);
   if (url === '/ChatWidget.js') { res.writeHead(200, headers('application/javascript; charset=utf-8')); return res.end(chatJs); }
   if (url === '/owui-widget.css') { res.writeHead(200, headers('text/css; charset=utf-8')); return res.end(chatCss); }
+  // Below here: side effects (/launch, /media), live data (/metrics, /nowplaying, /musictiles), or
+  // secrets (/app-config). Require the request to originate from our own served page — not a
+  // cross-site fetch, image, form, or navigation.
+  if (!sameOrigin(req)) { res.writeHead(403); res.end(); return; }
   if (url === '/app-config') {
     const m = /[?&]app=([A-Za-z0-9_-]+)/.exec(full);
     const cfg = (m && getAppConfig) ? getAppConfig(m[1]) : null;
