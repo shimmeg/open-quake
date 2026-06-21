@@ -10,7 +10,7 @@
  *   GET /            -> SystemView page        GET /metrics      -> system metrics JSON
  *   GET /music       -> Music app page         GET /nowplaying   -> SMTC now-playing JSON
  *   GET /musictiles  -> the active Music page's embedded 2x2 grid (resolved icons)
- *   GET /media/<cmd> -> transport (play/pause/next/prev/stop) via onMedia
+ *   GET /media/<cmd> -> transport (play/pause/next/prev) via onMedia
  *   GET /launch?i=N  -> launch the active Music grid's tile N via onLaunch (runAction)
  */
 const http = require('http');
@@ -21,7 +21,7 @@ const nowplaying = require('./nowplaying');
 
 const FALLBACK = '<!doctype html><meta charset="utf-8">'
   + '<body style="margin:0;background:#05080d;color:#9fb3c8;font:20px Segoe UI">page asset missing.</body>';
-const MEDIA_CMDS = { playpause: 1, next: 1, prev: 1, stop: 1 };
+const MEDIA_CMDS = { playpause: 1, next: 1, prev: 1 };
 const LOCAL_APP_CSP = [
   "default-src 'self' http: https: file: data: blob:",
   "script-src 'self' 'unsafe-inline'",

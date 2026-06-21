@@ -10,7 +10,6 @@ const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
 const actionRunner = require('./actionRunner');
 const { createMediaKeys } = require('./mediaKeys');
-let robot = null; try { robot = require('robotjs'); } catch (e) { console.log('robotjs unavailable (knob-volume off):', e.message); }
 
 const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
@@ -20,7 +19,7 @@ const APPS_DIR = path.join(__dirname, '..', 'apps').replace('app.asar', 'app.asa
 const LED_DEFAULT = { effect: 1, brightness: 200, speed: 128, hue: 128, sat: 255 }; // ring lighting fallback (effect 1 = Solid Color)
 const DEFAULT_SETTINGS = { launchMode: 'editor', micOnLaunch: false, lighting: Object.assign({}, LED_DEFAULT) };
 const actionDeps = { fs, shell, exec, execFile, spawn, platform: process.platform, log: message => console.log(message) };
-const mediaKeys = createMediaKeys({ robot, log: message => console.log(message) });
+const mediaKeys = createMediaKeys({ log: message => console.log(message) });
 let firstRun = false;     // set by loadConfig when there was no prior config (fresh install)
 let micState = false;     // current device mic state (LED follows it)
 let lastRingEffect = LED_DEFAULT.effect; // remembered so the tray on/off toggle can restore the prior effect
@@ -352,8 +351,8 @@ function runAction(a) {
   } catch (e) { console.log('action error:', e.message); }
 }
 
-// Media transport for the Music page — global media keys via robotjs (instant, in-process; Windows
-// routes them to the active SMTC session, the same one nowplaying.js reports).
+// Media transport for the Music page. The adapter keeps the backend narrow:
+// macOS helper first, robotjs fallback, and no arbitrary keyboard/mouse access here.
 function mediaKey(cmd) {
   return mediaKeys.transport(cmd);
 }

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const mainSource = fs.readFileSync('app/main.js', 'utf8');
+const npmrc = fs.existsSync('.npmrc') ? fs.readFileSync('.npmrc', 'utf8') : '';
 const build = pkg.build || {};
 
 function pngSize(file) {
@@ -15,8 +16,16 @@ function pngSize(file) {
 
 assert.equal(pkg.scripts.dist, 'electron-builder --mac', '`npm run dist` must build the primary macOS artifact');
 assert.equal(pkg.engines?.node, '>=22.12 <27', 'Node engines must allow Node 24 LTS through Node 26');
+assert.equal(pkg.dependencies?.robotjs, undefined, 'robotjs must not be a hard dependency');
+assert.equal(pkg.optionalDependencies?.robotjs, '^0.7.1', 'robotjs must remain an optional media-key fallback');
+assert.match(npmrc, /^disturl=https:\/\/nodejs\.org\/download\/release$/m, 'project .npmrc must keep Node headers for npm install under Node 26');
 assert.equal(pkg.scripts['dist:mac'], 'electron-builder --mac', '`dist:mac` must build macOS artifacts');
 assert.equal(pkg.scripts['dist:mac:dir'], 'electron-builder --mac dir', '`dist:mac:dir` must build an unpacked macOS app');
+assert.equal(pkg.scripts['build:macos-media-helper'], 'node scripts/build-macos-media-key-helper.mjs', '`build:macos-media-helper` must build the macOS media-key helper');
+assert.match(pkg.scripts.rebuild, /npm run build:macos-media-helper/, '`npm run rebuild` must build the macOS media-key helper');
+assert.equal(pkg.scripts.predist, 'npm run build:macos-media-helper', '`npm run dist` must prebuild the macOS media-key helper');
+assert.equal(pkg.scripts['predist:mac'], 'npm run build:macos-media-helper', '`npm run dist:mac` must prebuild the macOS media-key helper');
+assert.equal(pkg.scripts['predist:mac:dir'], 'npm run build:macos-media-helper', '`npm run dist:mac:dir` must prebuild the macOS media-key helper');
 assert.equal(pkg.scripts['build:smtc'], 'node build-smtc.js', '`build:smtc` must be available for the Windows album-art helper');
 assert.equal(pkg.scripts['start:win'], 'node build-smtc.js && electron .', '`start:win` must prebuild the Windows album-art helper');
 assert.equal(pkg.scripts['dist:win'], 'node build-smtc.js && electron-builder --win', '`dist:win` must prebuild the Windows album-art helper');
@@ -30,6 +39,8 @@ assert.equal(build.mac.entitlementsInherit, 'packaging/macos/entitlements.mac.pl
 assert.equal(build.mac.icon, 'packaging/macos/icon.png');
 assert.ok(build.mac.extendInfo && build.mac.extendInfo.NSMicrophoneUsageDescription, 'mac Info.plist must explain microphone use');
 assert.ok(fs.existsSync(build.mac.entitlements), 'mac entitlements plist must exist');
+assert.ok(fs.existsSync('native/macos/open-quake-media-key.m'), 'macOS media-key helper source must exist');
+assert.ok((build.asarUnpack || []).includes('app/native/**'), 'macOS media-key helper must be unpacked so it can execute');
 assert.equal(Object.prototype.hasOwnProperty.call(build.win || {}, 'sign'), false, 'deprecated win.sign must not block macOS electron-builder validation');
 const macIcon = pngSize(build.mac.icon);
 assert.ok(macIcon.width >= 512 && macIcon.height >= 512, 'mac icon must be at least 512x512 for electron-builder');

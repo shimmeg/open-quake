@@ -49,12 +49,13 @@ guarded by `npm run security:actions`.
 ## Native Input Surface
 
 `app/mediaKeys.js` is the narrow media-key adapter for the Music page and knob
-volume controls. Its current backend is `robotjs`, but the rest of the main
-process only asks for fixed media transport and volume/mute commands. It is not
-used for arbitrary mouse or keyboard automation. Replacing the backend with a
-narrower macOS implementation remains a follow-up because global media-key
-behavior needs a reliable macOS-specific implementation and should not break the
-launcher.
+volume controls. On macOS it first tries the local `open-quake-media-key`
+helper, which accepts only fixed media-key commands, then falls back to
+optional `robotjs` for unsupported or failed commands. The rest of the main process only
+asks for fixed media transport and volume/mute commands, and does not call
+`robotjs` directly. The helper can be built and ad-hoc signed for local use
+without an Apple Developer account; public release artifacts still need normal
+Developer ID signing and notarization.
 
 ## Dashboard Permissions
 

@@ -63,7 +63,7 @@
         <div class="btn" id="bPrev"></div>
         <div class="btn play" id="bPlay"></div>
         <div class="btn" id="bNext"></div>
-        <div class="btn" id="bStop"></div>
+        <div class="btn" id="bPause"></div>
       </div>
     </div>
     <div class="grid-col"><div class="grid" id="grid"></div></div>
@@ -77,15 +77,16 @@
     prev: '<svg viewBox="0 0 24 24"><path d="M7 6h2.4v12H7z"/><path d="M20 6v12l-9-6z"/></svg>',
     next: '<svg viewBox="0 0 24 24"><path d="M14.6 6H17v12h-2.4z"/><path d="M4 6v12l9-6z"/></svg>',
     play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
-    pause:'<svg viewBox="0 0 24 24"><path d="M6 5h4.2v14H6z"/><path d="M13.8 5H18v14h-4.2z"/></svg>',
-    stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
+    pause:'<svg viewBox="0 0 24 24"><path d="M6 5h4.2v14H6z"/><path d="M13.8 5H18v14h-4.2z"/></svg>'
   };
-  $('bPrev').innerHTML = ICON.prev; $('bNext').innerHTML = ICON.next; $('bStop').innerHTML = ICON.stop; $('bPlay').innerHTML = ICON.pause;
+  $('bPrev').innerHTML = ICON.prev; $('bNext').innerHTML = ICON.next; setPlayIcon(ICON.pause);
   function media(cmd){ fetch('/media/' + cmd, { cache: 'no-store' }).catch(function(){}); }
+  function setPlayIcon(icon){ $('bPlay').innerHTML = icon; $('bPause').innerHTML = icon; }
+  function togglePlayPause(){ media('playpause'); var p = $('bPlay').innerHTML === ICON.pause; setPlayIcon(p ? ICON.play : ICON.pause); }
   $('bPrev').onclick = function(){ media('prev'); };
   $('bNext').onclick = function(){ media('next'); };
-  $('bStop').onclick = function(){ media('stop'); };
-  $('bPlay').onclick = function(){ media('playpause'); var p = $('bPlay').innerHTML === ICON.pause; $('bPlay').innerHTML = p ? ICON.play : ICON.pause; };
+  $('bPause').onclick = togglePlayPause;
+  $('bPlay').onclick = togglePlayPause;
 
   function setArt(url){
     var img = $('artImg');
@@ -95,12 +96,12 @@
   function renderNP(s){
     if (!s || !s.title){
       $('mTitle').textContent = 'Nothing playing'; $('mArtist').textContent = '—';
-      $('mStatus').textContent = '—'; $('mApp').textContent = ''; $('bPlay').innerHTML = ICON.play; setArt(null); return;
+      $('mStatus').textContent = '—'; $('mApp').textContent = ''; setPlayIcon(ICON.play); setArt(null); return;
     }
     $('mTitle').textContent = s.title;
     $('mArtist').textContent = s.artist || '—';
     $('mStatus').textContent = s.status || '—';
-    $('bPlay').innerHTML = (s.status === 'Playing') ? ICON.pause : ICON.play;
+    setPlayIcon((s.status === 'Playing') ? ICON.pause : ICON.play);
     var app = (s.app || '').replace(/\._crx_.*/, '').replace(/!.*/, '').replace(/\.exe$/i, '');
     $('mApp').textContent = app ? ('· ' + app) : '';
     setArt(s.art);

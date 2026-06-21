@@ -16,10 +16,14 @@
     "security:macos": "node scripts/security/check-macos-build-config.mjs",
     "security:docs": "node scripts/security/check-macos-docs.mjs",
     "test:clock-layout": "node scripts/test-clock-layout.mjs",
-    "rebuild": "electron-rebuild -f",
+    "rebuild": "electron-rebuild -f && npm run build:macos-media-helper",
     "build:smtc": "node build-smtc.js",
+    "build:macos-media-helper": "node scripts/build-macos-media-key-helper.mjs",
+    "predist": "npm run build:macos-media-helper",
     "dist": "electron-builder --mac",
+    "predist:mac": "npm run build:macos-media-helper",
     "dist:mac": "electron-builder --mac",
+    "predist:mac:dir": "npm run build:macos-media-helper",
     "dist:mac:dir": "electron-builder --mac dir",
     "dist:win": "node build-smtc.js && electron-builder --win"
   },
@@ -35,8 +39,10 @@
   ],
   "dependencies": {
     "node-hid": "^3.3.0",
-    "robotjs": "^0.7.1",
     "systeminformation": "^5.31.7"
+  },
+  "optionalDependencies": {
+    "robotjs": "^0.7.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",

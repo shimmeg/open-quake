@@ -21,12 +21,15 @@ Full reverse-engineered protocol: [DEVICE_PROTOCOL.md](DEVICE_PROTOCOL.md).
 ## Build & run (macOS)
 
 > **Node 24 LTS is the recommended release baseline** (pinned by `.nvmrc`). Node 26 is
-> supported for local install, rebuild, and unsigned packaging. If native rebuild fails,
-> check `node --version`, switch to Node 24 for the release baseline, delete
+> supported for local install, rebuild, and unsigned packaging. The project
+> `.npmrc` keeps Node native builds pointed at `nodejs.org` headers so user-level
+> Electron header settings do not break `npm ci` under Node 26. If native rebuild
+> fails, check `node --version`, switch to Node 24 for the release baseline, delete
 > `node_modules`, and reinstall. (`package.json` declares `"engines": node >=22.12 <27`.)
 
 Install Xcode Command Line Tools, then build the native modules (`node-hid`,
-`robotjs`) against this app's Electron ABI (**Electron 42**):
+optional `robotjs`) against this app's Electron ABI (**Electron 42**) and the
+local macOS media-key helper:
 
 ```bash
 xcode-select --install
@@ -66,10 +69,12 @@ landscape.
 ## Current macOS limitations
 
 - The Music page's transport buttons and knob volume/mute go through
-  `app/mediaKeys.js`. Its current backend uses `robotjs` only for fixed
-  media-key events, so macOS may require Accessibility permission. A narrower
-  macOS media backend is a follow-up so the launcher is not broken by a partial
-  replacement.
+  `app/mediaKeys.js`. On macOS the adapter first tries the local
+  `open-quake-media-key` helper for play/pause, next, previous, volume up/down,
+  and mute, then falls back to optional `robotjs` for unsupported or failed commands.
+  The helper is built by `npm run rebuild` into `app/native/` and ad-hoc signed
+  locally; Developer ID signing/notarization is still required for public
+  release artifacts.
 - Generic now-playing metadata is still implemented through the Windows SMTC
   helper and is not macOS-parity yet.
 - The System Monitor uses cross-platform `systeminformation` where possible, but

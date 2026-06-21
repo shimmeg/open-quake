@@ -27,6 +27,7 @@
 
 - Recommended release baseline: Node 24 LTS.
 - Local install/rebuild/unsigned packaging may use Node versions in `>=22.12 <27`.
+- Keep the project `.npmrc` pointed at Node release headers so user-level Electron header settings do not break `npm ci` under Node 26.
 - Before commits that touch behavior, build, docs, or security checks, run the relevant verification:
   - `npm run security:baseline`
   - `npm run security:actions`
@@ -64,8 +65,8 @@
 
 - The DK-QUAKE panel is treated as a normal external display; USB HID handles touch, knob, mic state, lighting, and keep-alive.
 - The panel window should occupy the full device display bounds and hide system/menu chrome.
-- `app/mediaKeys.js` is the narrow media-key adapter. Its current backend is `robotjs`, but the main process should only ask for fixed media transport and volume/mute commands through the adapter.
-- Replacing the `robotjs` backend with a narrower macOS-native media-key implementation is a follow-up. Do not partially replace it if that would break launcher media controls.
+- `app/mediaKeys.js` is the narrow media-key adapter. On macOS it should try the local `open-quake-media-key` helper first, then fall back to optional `robotjs` for unsupported or failed commands.
+- Keep media-key behavior constrained to fixed transport and volume/mute commands. Generic macOS now-playing parity remains follow-up work; do not partially replace fallback behavior if it breaks launcher media controls.
 
 ## Git Practices
 
