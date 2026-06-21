@@ -61,7 +61,7 @@ function sameOrigin(req) {
   const site = req.headers['sec-fetch-site'];
   if (site) return site === 'same-origin';                       // modern Chromium: only our own page's fetches
   const origin = req.headers.origin;
-  if (!origin) return true;                                      // no Sec-Fetch + no Origin: same-origin GET (Host already checked)
+  if (!origin) return false;                                     // no Sec-Fetch AND no Origin: fail closed (our served pages always send Sec-Fetch-Site)
   try { const o = new URL(origin); return o.protocol === 'http:' && (o.hostname === '127.0.0.1' || o.hostname === 'localhost') && Number(o.port) === loopbackPort(); }
   catch (e) { return false; }
 }

@@ -247,6 +247,9 @@ if (!/function hostOk\s*\(/.test(sysserver) || !/if \(!hostOk\(req\)\)/.test(sys
 if (!/sec-fetch-site/.test(sysserver) || !/if \(!sameOrigin\(req\)\)/.test(sysserver)) {
   fail('sysserver-csrf-guard', 'app/sysserver.js must require a same-origin request for side-effecting/secret routes');
 }
+if (/if \(!origin\)\s*return true/.test(sysserver)) {
+  fail('sysserver-csrf-guard', 'app/sysserver.js sameOrigin() must fail closed when both Origin and Sec-Fetch-Site are absent');
+}
 
 // Privileged IPC channels must validate the sender window (panel vs editor) before acting.
 if (!/function isFrom\s*\(/.test(main)) {
