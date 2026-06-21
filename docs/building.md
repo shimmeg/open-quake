@@ -20,10 +20,10 @@ Full reverse-engineered protocol: [DEVICE_PROTOCOL.md](DEVICE_PROTOCOL.md).
 
 ## Build & run (macOS)
 
-> **Use Node 24 LTS** (pinned by `.nvmrc`). **Don't use Node 25/26 for release builds.**
-> The native modules still need a conservative Node/native toolchain even though Electron
-> itself is newer. If native rebuild fails, check `node --version`, switch to Node 24,
-> delete `node_modules`, and reinstall. (`package.json` declares `"engines": node >=22.12 <25`.)
+> **Node 24 LTS is the recommended release baseline** (pinned by `.nvmrc`). Node 26 is
+> supported for local install, rebuild, and unsigned packaging. If native rebuild fails,
+> check `node --version`, switch to Node 24 for the release baseline, delete
+> `node_modules`, and reinstall. (`package.json` declares `"engines": node >=22.12 <27`.)
 
 Install Xcode Command Line Tools, then build the native modules (`node-hid`,
 `robotjs`) against this app's Electron ABI (**Electron 42**):

@@ -83,9 +83,9 @@ npm run rebuild
 npm start
 ```
 
-Use Node 24 LTS or another supported Node in the `>=22.12 <25` range. Node 25/26 can install
-some packages, but native Electron modules are more likely to fail or produce misleading
-results.
+Node 24 LTS is the recommended baseline, especially for release verification. Node 26 is
+supported for local install, rebuild, and app packaging; `package.json` allows Node versions in
+the `>=22.12 <27` range.
 
 Without the DK-QUAKE connected, the editor still opens so you can inspect pages, tiles, and
 settings. With the device connected, plug in both the USB HID connection and the display cable,

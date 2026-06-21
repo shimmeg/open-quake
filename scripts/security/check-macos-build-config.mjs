@@ -13,6 +13,7 @@ function pngSize(file) {
 }
 
 assert.equal(pkg.scripts.dist, 'electron-builder --mac', '`npm run dist` must build the primary macOS artifact');
+assert.equal(pkg.engines?.node, '>=22.12 <27', 'Node engines must allow Node 24 LTS through Node 26');
 assert.equal(pkg.scripts['dist:mac'], 'electron-builder --mac', '`dist:mac` must build macOS artifacts');
 assert.equal(pkg.scripts['dist:mac:dir'], 'electron-builder --mac dir', '`dist:mac:dir` must build an unpacked macOS app');
 assert.equal(pkg.scripts['build:smtc'], 'node build-smtc.js', '`build:smtc` must be available for the Windows album-art helper');
