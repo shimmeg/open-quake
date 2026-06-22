@@ -30,10 +30,11 @@
 - Keep the project `.npmrc` pointed at Node release headers so user-level Electron header settings do not break `npm ci` under Node 26.
 - Before commits that touch behavior, build, docs, or security checks, run the relevant verification:
   - `npm run security:baseline`
-  - `npm run security:actions`
+  - `npm test` (node:test unit suites; also runs as `npm run security:actions`)
   - `npm run security:macos`
   - `npm run security:docs`
   - `npm run rebuild`
+- `npm run security:all` runs the baseline + tests + macOS + docs guards in one shot. CI (`.github/workflows/ci.yml`) runs the same guards on every push/PR across Node 22/24/26 (no dependency install or native build needed).
 - For unsigned macOS packaging verification, run:
   - `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac:dir`
 - Run `npm run dist:mac` only when signing and notarization credentials are ready. Do not use it as a substitute for release signing setup.

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -47,7 +48,7 @@ function deps(overrides = {}) {
   };
 }
 
-{
+test('resolveAppPath resolves a bare name via execFile (no shell injection)', async () => {
   const value = 'calc.exe" & whoami';
   const d = deps({
     execFileOutput: 'C:\\Windows\\System32\\calc.exe\r\n',
@@ -64,9 +65,9 @@ function deps(overrides = {}) {
     options: { windowsHide: true },
   });
   assert.equal(d.calls.some(c => c.fn === 'exec'), false);
-}
+});
 
-{
+test('launchApp opens a full path via shell.openPath, never a shell', async () => {
   const fullPath = 'C:\\Program Files\\Acme & Co\\app.exe';
   const d = deps({ exists: file => file === fullPath });
 
@@ -76,9 +77,9 @@ function deps(overrides = {}) {
   assert.deepEqual(d.calls.filter(c => c.fn === 'openPath'), [{ fn: 'openPath', file: fullPath }]);
   assert.equal(d.calls.some(c => c.fn === 'exec'), false);
   assert.equal(d.calls.some(c => c.fn === 'spawn'), false);
-}
+});
 
-{
+test('launchApp resolves a bare name then spawns it detached (no shell)', async () => {
   const value = 'notepad && whoami';
   const d = deps({
     execFileOutput: 'C:\\Windows\\System32\\notepad.exe\r\n',
@@ -96,9 +97,9 @@ function deps(overrides = {}) {
     options: { detached: true, stdio: 'ignore', windowsHide: true },
   });
   assert.equal(d.calls.some(c => c.fn === 'exec'), false);
-}
+});
 
-{
+test('runShellCommand passes the command through with windowsHide', () => {
   const d = deps();
 
   assert.equal(runShellCommand('echo ok && whoami', d), true);
@@ -108,9 +109,9 @@ function deps(overrides = {}) {
     command: 'echo ok && whoami',
     options: { windowsHide: true },
   }]);
-}
+});
 
-{
+test('lockWorkstation on Windows uses rundll32 LockWorkStation', () => {
   const d = deps();
 
   assert.equal(lockWorkstation(d), true);
@@ -121,9 +122,9 @@ function deps(overrides = {}) {
     args: ['user32.dll,LockWorkStation'],
     options: { windowsHide: true },
   }]);
-}
+});
 
-{
+test('launchApp on macOS uses open -a for a bare app name', async () => {
   const d = deps({ platform: 'darwin' });
 
   const launched = await launchApp('Safari', d);
@@ -137,9 +138,9 @@ function deps(overrides = {}) {
   });
   assert.equal(d.calls.some(c => c.fn === 'exec'), false);
   assert.equal(d.calls.some(c => c.fn === 'spawn'), false);
-}
+});
 
-{
+test('launchApp on macOS opens an .app bundle path via openPath', async () => {
   const appPath = '/Applications/Visual Studio Code.app';
   const d = deps({ platform: 'darwin', exists: file => file === appPath });
 
@@ -148,9 +149,9 @@ function deps(overrides = {}) {
   assert.equal(launched, true);
   assert.deepEqual(d.calls.filter(c => c.fn === 'openPath'), [{ fn: 'openPath', file: appPath }]);
   assert.equal(d.calls.some(c => c.fn === 'exec'), false);
-}
+});
 
-{
+test('lockWorkstation on macOS uses pmset displaysleepnow', () => {
   const d = deps({ platform: 'darwin' });
 
   assert.equal(lockWorkstation(d), true);
@@ -161,9 +162,9 @@ function deps(overrides = {}) {
     args: ['displaysleepnow'],
     options: {},
   }]);
-}
+});
 
-{
+test('macOS default config seeds no shell-command or Windows-only tiles', () => {
   const config = JSON.parse(fs.readFileSync(new URL('../../app/config.default.json', import.meta.url), 'utf8'));
   const tiles = (config.grids || []).flatMap(g => g.tiles || []);
   const appValues = tiles.filter(t => t && t.type === 'app').map(t => t.value);
@@ -175,6 +176,4 @@ function deps(overrides = {}) {
   assert.ok(appValues.includes('Safari'), 'macOS default config should include Safari');
   assert.ok(appValues.includes('Finder'), 'macOS default config should include Finder');
   assert.ok(appValues.includes('System Settings'), 'macOS default config should include System Settings');
-}
-
-console.log('Action runner security tests passed.');
+});

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: checks (node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cover the supported range from package.json engines (>=22.12 <27).
+        node-version: ['22', '24', '26']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      # No dependency install / native build: the security checks and node:test suites import
+      # only Node core + repo files (the localhost-server test stubs the metrics + now-playing
+      # modules), so this stays fast and never has to download Electron or rebuild node-hid.
+      - name: Security baseline (renderer isolation, XSS, CSRF, IPC guards)
+        run: npm run security:baseline
+      - name: Unit tests (node:test)
+        run: npm test
+      - name: macOS build-config guard
+        run: npm run security:macos
+      - name: macOS docs guard
+        run: npm run security:docs
