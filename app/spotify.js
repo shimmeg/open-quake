@@ -120,7 +120,7 @@ function parseNowPlaying(json) {
 // getNowPlaying() NEVER throws: any failure (network, auth, parse) is logged and yields null so the
 // poller just shows "nothing playing" rather than crashing the tick loop. 401 -> refresh once + retry;
 // 429 -> back off (return null) rather than hammering the API.
-function createSpotifyClient({ clientId, getRefreshToken, fetchImpl, now = () => Date.now(), log = () => {} }) {
+function createSpotifyClient({ clientId, getRefreshToken, setRefreshToken, fetchImpl, now = () => Date.now(), log = () => {} }) {
   let accessToken = null;
   let expiresAt = 0;
 
@@ -132,6 +132,10 @@ function createSpotifyClient({ clientId, getRefreshToken, fetchImpl, now = () =>
     const id = resolveClientId();
     if (!refreshToken || !id) { accessToken = null; expiresAt = 0; return null; }
     const r = await refreshAccessToken({ clientId: id, refreshToken, fetchImpl });
+    if (r.refreshToken && r.refreshToken !== refreshToken && typeof setRefreshToken === 'function') {
+      try { setRefreshToken(r.refreshToken); }
+      catch (e) { log('spotify: failed to persist rotated refresh token: ' + (e && e.message)); }
+    }
     accessToken = r.accessToken;
     expiresAt = r.expiresAt;
     return accessToken;

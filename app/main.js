@@ -173,11 +173,18 @@ const secretStore = createSecretStore({ safeStorage, loadApps, log: m => console
 const SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:8888/callback';
 const SPOTIFY_SCOPES = ['user-read-currently-playing', 'user-read-playback-state'];
 function spotifySettings() { return (config.settings && config.settings.spotify) || {}; }
+function saveSpotifyRefreshToken(refreshToken) {
+  if (!config.settings) config.settings = {};
+  if (!config.settings.spotify) config.settings.spotify = {};
+  config.settings.spotify.refreshToken = refreshToken;
+  saveConfig();
+}
 // fetchImpl: a thin wrapper over electron net.fetch (WHATWG fetch -> a Response with .ok/.status/.text/.json).
 function spotifyFetch(url, opts) { return net.fetch(url, opts); }
 const spotifyClient = spotify.createSpotifyClient({
   clientId: () => spotifySettings().clientId || '',
   getRefreshToken: () => spotifySettings().refreshToken || '',
+  setRefreshToken: saveSpotifyRefreshToken,
   fetchImpl: spotifyFetch,
   log: m => console.log(m),   // the client only logs status/HTTP codes — never tokens or the code
 });
@@ -585,10 +592,7 @@ function spotifyConnect() {
       spotify.exchangeCode({ clientId, code, codeVerifier: verifier, redirectUri: SPOTIFY_REDIRECT_URI, fetchImpl: spotifyFetch })
         .then(tokens => {
           if (!tokens || !tokens.refreshToken) return finish({ ok: false, error: 'Spotify did not return a refresh token.' });
-          if (!config.settings) config.settings = {};
-          if (!config.settings.spotify) config.settings.spotify = {};
-          config.settings.spotify.refreshToken = tokens.refreshToken;   // saveConfig encrypts it at rest
-          saveConfig();
+          saveSpotifyRefreshToken(tokens.refreshToken);   // saveConfig encrypts it at rest
           finish({ ok: true });
         })
         .catch(() => finish({ ok: false, error: 'Token exchange failed.' }));   // never surface the error detail (may echo the code)
@@ -631,7 +635,7 @@ app.whenReady().then(async () => {
   // Lazy-required so a metrics/load failure can never crash the rest of the app.
   try {
     sysserver = require('./sysserver');
-    serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig, getNowPlaying: spotifyNowPlaying });
+    serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig, getNowPlaying: process.platform === 'darwin' ? spotifyNowPlaying : null });
     ensureSystemViewPage(serverPort); ensureMusicPage();
     console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
   } catch (e) { console.log('local panel services failed to start:', e.message); }

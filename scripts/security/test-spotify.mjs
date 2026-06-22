@@ -166,6 +166,22 @@ test('createSpotifyClient.getNowPlaying: refreshes when no token, then returns t
   assert.equal(fetchImpl.calls[1].opts.headers.Authorization, 'Bearer AT');
 });
 
+test('createSpotifyClient.getNowPlaying: persists a rotated refresh token', async () => {
+  const tokenResp = fakeResponse({ json: { access_token: 'AT', refresh_token: 'NEW_RT', expires_in: 3600 } });
+  const playingResp = fakeResponse({ status: 204 });
+  const fetchImpl = fakeFetch([tokenResp, playingResp]);
+  const rotations = [];
+  const client = createSpotifyClient({
+    clientId: 'cid',
+    getRefreshToken: () => 'OLD_RT',
+    setRefreshToken: token => rotations.push(token),
+    fetchImpl,
+  });
+
+  assert.equal(await client.getNowPlaying(), null);
+  assert.deepEqual(rotations, ['NEW_RT']);
+});
+
 test('createSpotifyClient.getNowPlaying: returns null on 204 (nothing playing)', async () => {
   const fetchImpl = fakeFetch([fakeResponse({ json: { access_token: 'AT', expires_in: 3600 } }), fakeResponse({ status: 204 })]);
   const client = createSpotifyClient({ clientId: 'cid', getRefreshToken: () => 'RT', fetchImpl });

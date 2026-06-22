@@ -305,8 +305,14 @@ if (!fs.existsSync(path.join(root, 'app/spotify.js'))) {
 if (!/params\.get\(['"]state['"]\)\s*!==\s*state/.test(main) && !/state['"]\)\s*!==\s*state/.test(main)) {
   fail('spotify-state-csrf', 'app/main.js Spotify callback must validate the OAuth state (reject mismatches)');
 }
-if (!/config\.settings\.spotify\.refreshToken\s*=\s*tokens\.refreshToken/.test(main)) {
+if (
+  !/config\.settings\.spotify\.refreshToken\s*=\s*refreshToken/.test(main)
+  || !/saveSpotifyRefreshToken\s*\(\s*tokens\.refreshToken\s*\)/.test(main)
+) {
   fail('spotify-refresh-at-rest', 'app/main.js must store the Spotify refresh token in config.settings.spotify.refreshToken (encrypted at rest by secretStore)');
+}
+if (!/getNowPlaying:\s*process\.platform\s*===\s*['"]darwin['"]\s*\?\s*spotifyNowPlaying\s*:\s*null/.test(main)) {
+  fail('spotify-provider-macos-only', 'app/main.js must only install the Spotify now-playing provider on macOS, preserving Windows SMTC fallback');
 }
 
 if (failures.length) {
