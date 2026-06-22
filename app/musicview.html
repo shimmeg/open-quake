@@ -5,48 +5,67 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' http: https: file: data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file: http: https:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';">
 <title>Music</title>
 <style>
+  :root {
+    --panel-bg: #080a0f;
+    --surface: rgba(255,255,255,.065);
+    --surface-strong: rgba(255,255,255,.105);
+    --stroke: rgba(255,255,255,.14);
+    --stroke-soft: rgba(255,255,255,.08);
+    --text: #f4f7fb;
+    --muted: #9aa6b5;
+    --accent: #6ee7b7;
+    --accent-blue: #7bb7ff;
+  }
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 100%; height: 100%; }
-  body { background: #05080d; color: #e8eef6; overflow: hidden; user-select: none;
-    font-family: "Segoe UI", system-ui, sans-serif; }
-  /* rule-of-thirds: art anchored left edge | now-playing + transport fill the middle band | grid anchored right edge */
-  #wrap { display: flex; width: 100vw; height: 100vh; padding: 26px; align-items: stretch; }
-  .art-col { flex: 1; display: flex; align-items: center; justify-content: flex-start; }
-  .mid { flex: 1.45; min-width: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 28px; padding: 30px 46px; }
-  .grid-col { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
-
-  /* album art: the 🎵 note shows until the SMTC .NET helper supplies cover art (then artImg covers it) */
-  .art { height: 100%; aspect-ratio: 1/1; border-radius: 18px; position: relative; overflow: hidden;
-    background: linear-gradient(160deg, #11202e, #0a1119); border: 1px solid #1a2738;
-    display: flex; align-items: center; justify-content: center; }
-  .art .note { font-size: 150px; opacity: .22; }
+  body {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.035), rgba(255,255,255,0) 42%),
+      radial-gradient(120% 160% at 0% 0%, #132033 0%, var(--panel-bg) 62%);
+    color: var(--text); overflow: hidden; user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  #wrap { display: flex; width: 100vw; height: 100vh; padding: 26px; align-items: stretch; gap: 28px; }
+  .art-col { flex: .98; display: flex; align-items: center; justify-content: flex-start; min-width: 0; }
+  .mid { flex: 1.52; min-width: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 26px; padding: 28px 28px; }
+  .grid-col { flex: .98; display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+  .art {
+    height: 100%; aspect-ratio: 1/1; border-radius: 24px; position: relative; overflow: hidden;
+    background: linear-gradient(180deg, var(--surface-strong), var(--surface)); border: 1px solid var(--stroke-soft);
+    display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 36px rgba(0,0,0,.28);
+  }
+  .art .note { font-size: 138px; opacity: .2; }
   .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
-
-  .title { font-size: 52px; font-weight: 800; line-height: 1.12; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .artist { font-size: 32px; color: #9fb3c8; margin-top: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .status { display: flex; align-items: center; gap: 12px; margin-top: 26px; font-size: 19px; color: #7e93ab; }
-  .status .pill { padding: 4px 14px; border-radius: 20px; background: #16202e; color: #7CFFB2; font-weight: 700; letter-spacing: .5px; }
-  .controls { display: flex; align-items: center; justify-content: space-between; }
-  .btn { width: 92px; height: 92px; border-radius: 50%; border: 1px solid #243345; cursor: pointer; color: #e8eef6;
-    background: linear-gradient(160deg, #101a26, #0a1119); display: flex; align-items: center; justify-content: center;
-    transition: transform .08s ease; }
-  .btn:active { transform: scale(.92); }
+  .title { font-size: 50px; font-weight: 800; line-height: 1.08; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .artist { font-size: 30px; color: var(--muted); margin-top: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status { display: flex; align-items: center; gap: 12px; margin-top: 24px; font-size: 18px; color: #7f8da1; min-height: 30px; }
+  .status .pill { padding: 5px 14px; border-radius: 999px; background: rgba(110,231,183,.12); color: var(--accent); border: 1px solid rgba(110,231,183,.24); font-weight: 800; letter-spacing: .4px; }
+  .controls { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+  .btn {
+    width: 92px; height: 92px; border-radius: 50%; border: 1px solid var(--stroke-soft); cursor: pointer; color: var(--text);
+    background: linear-gradient(180deg, var(--surface-strong), var(--surface)); display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 24px rgba(0,0,0,.22); transition: transform .08s ease, border-color .08s ease;
+  }
+  .btn:active { transform: scale(.92); border-color: rgba(110,231,183,.72); }
   .btn svg { width: 42%; height: 42%; fill: currentColor; }
-  .btn.play { width: 116px; height: 116px; color: #04121f; background: linear-gradient(160deg, #1db96a, #0f8f4f); border-color: #7CFFB2; }
-
-  /* right: the programmable 2x2 grid — a square block with square tiles, matching the Default grid */
-  .grid { flex: none; height: 100%; aspect-ratio: 1; display: grid; gap: 16px; }
-  .tile { border-radius: 16px; border: 1px solid #1a2738; cursor: pointer; overflow: hidden;
-    background: linear-gradient(160deg, #0e1a26, #0a1119); display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 8px; transition: transform .08s ease; }
-  .tile:active { transform: scale(.97); }
+  .btn.play { width: 116px; height: 116px; color: #071016; background: linear-gradient(180deg, #84f4c8, #37c987); border-color: rgba(110,231,183,.84); }
+  .grid { flex: none; height: 100%; aspect-ratio: 1; display: grid; gap: 14px; }
+  .tile {
+    border-radius: 16px; border: 1px solid var(--stroke-soft); cursor: pointer; overflow: hidden;
+    background: linear-gradient(180deg, var(--surface-strong), var(--surface)); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; transition: transform .08s ease, border-color .08s ease;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 24px rgba(0,0,0,.2);
+  }
+  .tile:active { transform: scale(.965); border-color: rgba(110,231,183,.72); }
+  .icon-frame {
+    width: 82px; height: 82px; border-radius: 22px; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.08);
+  }
   .tile .ic { font-size: 52px; line-height: 1; }
-  .tile .ic img { width: 60px; height: 60px; object-fit: contain; }
-  .tile .lb { font-size: 20px; color: #c7d4e2; font-weight: 600; padding: 0 8px; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .tile.empty { background: #0a0f16; border-style: dashed; border-color: #141c28; cursor: default; }
-
-  #recon { position: fixed; right: 14px; bottom: 10px; font-size: 12px; color: #c98; opacity: 0; transition: opacity .3s; }
+  .tile .ic img { width: 62px; height: 62px; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(0,0,0,.28)); }
+  .tile .lb { max-width: 92%; font-size: 19px; color: #cbd5e1; font-weight: 700; padding: 0 8px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile.empty { background: rgba(255,255,255,.025); border-style: dashed; border-color: rgba(255,255,255,.08); cursor: default; box-shadow: none; }
+  #recon { position: fixed; right: 14px; bottom: 10px; font-size: 12px; color: #ffbf8a; opacity: 0; transition: opacity .3s; }
   #recon.show { opacity: 1; }
 </style>
 </head>

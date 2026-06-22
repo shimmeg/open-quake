@@ -77,8 +77,20 @@
       d.style.gridColumn = `${col + 1} / span ${w}`;
       d.style.gridRow = `${row + 1} / span ${h}`;
       if (!empty) {                                            // build via DOM nodes (never innerHTML) so a config-supplied label/icon can't inject markup
-        if (t.iconSrc) { const im = document.createElement('img'); im.className = 'ic-img'; im.src = t.iconSrc; d.appendChild(im); }
-        else { const icd = document.createElement('div'); icd.className = 'ic'; icd.textContent = t.icon || '▫️'; d.appendChild(icd); }
+        const frame = document.createElement('div');
+        frame.className = 'icon-frame';
+        if (t.iconSrc) {
+          const im = document.createElement('img');
+          im.className = 'ic-img';
+          im.src = t.iconSrc;
+          frame.appendChild(im);
+        } else {
+          const icd = document.createElement('div');
+          icd.className = 'ic';
+          icd.textContent = t.icon || '▫️';
+          frame.appendChild(icd);
+        }
+        d.appendChild(frame);
         const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = t.label || ''; d.appendChild(lb);
       }
       grid.appendChild(d);
