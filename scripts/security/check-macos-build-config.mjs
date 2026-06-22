@@ -51,5 +51,6 @@ assert.ok(/open-quake-\$\{version\}-\$\{arch\}\.\$\{ext\}/.test(build.mac.artifa
 assert.ok(build.dmg && /open-quake-\$\{version\}-\$\{arch\}\.\$\{ext\}/.test(build.dmg.artifactName), 'dmg artifact name must include version and arch');
 assert.match(mainSource, /panelWin\.setMenuBarVisibility\(false\)/, 'panel window must hide the macOS/Electron menu bar');
 assert.match(mainSource, /panelWin\.setSimpleFullScreen\(true\)/, 'panel window must enter fullscreen on the device display');
+assert.match(mainSource, /setTemplateImage\(true\)/, 'macOS tray icon must be a resized template menu-bar image, not the full-size colored app logo (which renders as an oversized blob by the notch)');
 
 console.log('macOS build config checks passed.');
