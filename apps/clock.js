@@ -40,7 +40,10 @@
     const groupGap = clamp(4, 0.008 * vw, 16);
 
     const cardWidthFactor = 0.66;
-    const wideHourFactor = 1.04;
+    // The 12h hour is one wide card holding the whole hour ("1".."12"). It must fit TWO digits at --fs
+    // (≈1.3×font-size) without clipping — 1.04 clipped "10/11/12"; ~1.35 fits with margin and reads
+    // about as wide as the two-card minute group.
+    const wideHourFactor = 1.35;
     const hourFactor = settings.mode === '12' ? wideHourFactor : cardWidthFactor * 2;
     const minuteFactor = cardWidthFactor * 2;
     const secondFactor = settings.seconds ? cardWidthFactor * 2 : 0;
@@ -60,7 +63,7 @@
     const dot = clamp(8, ch * 0.026, 18);
     r.setProperty('--ch', px(ch));
     r.setProperty('--cw', px(ch * cardWidthFactor));
-    r.setProperty('--cw2', px(ch * wideHourFactor));    // single hour card (12h), ~20% narrower
+    r.setProperty('--cw2', px(ch * wideHourFactor));    // single hour card (12h): wide enough for two digits
     r.setProperty('--fs', px(ch * 0.92));
     r.setProperty('--clock-gap', px(clockGap));
     r.setProperty('--group-gap', px(groupGap));

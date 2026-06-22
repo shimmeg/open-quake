@@ -547,7 +547,13 @@ function refreshTray() { if (tray) tray.setContextMenu(trayMenu()); }
 function createTray() {
   if (tray) return;
   let img;
-  try { img = nativeImage.createFromBuffer(fs.readFileSync(path.join(__dirname, 'icon.png'))); } catch (e) { img = nativeImage.createEmpty(); }
+  try {
+    img = nativeImage.createFromBuffer(fs.readFileSync(path.join(__dirname, 'icon.png')));
+    if (process.platform === 'darwin') {
+      img = img.resize({ width: 18, height: 18 });   // macOS menu bar wants a small icon — the raw 256px app logo rendered as an oversized blob by the notch
+      img.setTemplateImage(true);                      // monochrome menu-bar glyph that adapts to light/dark (macOS HIG)
+    }
+  } catch (e) { img = nativeImage.createEmpty(); }
   tray = new Tray(img);
   tray.setToolTip('open-quake');
   refreshTray();
@@ -782,4 +788,7 @@ app.whenReady().then(async () => {
 });
 }
 app.on('window-all-closed', () => {});
-app.on('before-quit', () => { try { if (sysserver) sysserver.stop(); } catch (e) {} });   // stop metrics timers + close the server
+app.on('before-quit', () => {
+  try { dev.stop(); } catch (e) {}                       // close HID devices + clear keep-alive/rescan timers — an open node-hid handle blocks process exit (Cmd+Q would hang -> force-quit)
+  try { if (sysserver) sysserver.stop(); } catch (e) {}  // stop metrics timers + close the local server
+});
