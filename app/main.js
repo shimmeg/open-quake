@@ -8,9 +8,11 @@ const { exec, execFile, spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
+const http = require('http');
 const actionRunner = require('./actionRunner');
 const { createMediaKeys } = require('./mediaKeys');
 const { createSecretStore } = require('./secretStore');
+const spotify = require('./spotify');
 
 const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
@@ -163,6 +165,32 @@ function loadApps() {
 // `config` stays plaintext; encryption happens only at the disk boundary (saveConfig). safeStorage
 // needs app-ready, so decryptConfig runs as the first thing in whenReady, not at module load.
 const secretStore = createSecretStore({ safeStorage, loadApps, log: m => console.log(m) });
+
+// ---- Spotify "now playing" (macOS) — OAuth Authorization-Code + PKCE, no client secret. ----
+// The Client ID is PUBLIC; the refresh token is the secret (encrypted at rest by secretStore). The
+// access token lives in memory only, inside the client. Redirect URI is a FIXED loopback the user
+// registers in their Spotify app dashboard.
+const SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:8888/callback';
+const SPOTIFY_SCOPES = ['user-read-currently-playing', 'user-read-playback-state'];
+function spotifySettings() { return (config.settings && config.settings.spotify) || {}; }
+function saveSpotifyRefreshToken(refreshToken) {
+  if (!config.settings) config.settings = {};
+  if (!config.settings.spotify) config.settings.spotify = {};
+  config.settings.spotify.refreshToken = refreshToken;
+  saveConfig();
+}
+// fetchImpl: a thin wrapper over electron net.fetch (WHATWG fetch -> a Response with .ok/.status/.text/.json).
+function spotifyFetch(url, opts) { return net.fetch(url, opts); }
+const spotifyClient = spotify.createSpotifyClient({
+  clientId: () => spotifySettings().clientId || '',
+  getRefreshToken: () => spotifySettings().refreshToken || '',
+  setRefreshToken: saveSpotifyRefreshToken,
+  fetchImpl: spotifyFetch,
+  log: m => console.log(m),   // the client only logs status/HTTP codes — never tokens or the code
+});
+// The now-playing source handed to sysserver: only query Spotify once an account is connected
+// (a refresh token exists); otherwise null so nowplaying falls through to its other paths.
+function spotifyNowPlaying() { return spotifySettings().refreshToken ? spotifyClient.getNowPlaying() : null; }
 // Build the file: URL for an app page, encoding its options as a #hash (file:// drops a ?query).
 function appOptionQuery(def, opts, include) {
   return (def.options || []).map(o => {
@@ -526,6 +554,58 @@ function createTray() {
   tray.on('click', () => openConfigWindow());
 }
 
+// Run the Spotify PKCE flow: open the consent page in the user's browser, catch the redirect on a
+// single-use loopback server, then exchange the code for tokens. Resolves { ok, error } — never throws.
+// SECURITY: the OAuth `state` is validated on the callback (CSRF); the loopback server binds 127.0.0.1
+// only, is single-use, and times out; the authorization code and tokens are never logged.
+function spotifyConnect() {
+  return new Promise(resolve => {
+    const clientId = spotifySettings().clientId || '';
+    if (!clientId) return resolve({ ok: false, error: 'Set a Spotify Client ID first.' });
+
+    const { verifier, challenge } = spotify.generatePkce({ randomBytes: crypto.randomBytes, createHash: crypto.createHash });
+    const state = spotify.base64url(crypto.randomBytes(16));
+
+    let settled = false, server = null, timer = null;
+    const cleanup = () => { if (timer) clearTimeout(timer); timer = null; if (server) { try { server.close(); } catch (e) {} server = null; } };
+    const finish = result => { if (settled) return; settled = true; cleanup(); resolve(result); };
+
+    const respond = (res, code, body) => { try { res.writeHead(code, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(body); } catch (e) {} };
+    const PAGE_OK = '<!doctype html><meta charset="utf-8"><title>open-quake</title>'
+      + '<body style="font-family:system-ui,sans-serif;background:#11151c;color:#dbe5f0;padding:40px">'
+      + '<h2>Spotify connected</h2><p>You can close this tab and return to open-quake.</p></body>';
+    const PAGE_ERR = '<!doctype html><meta charset="utf-8"><title>open-quake</title>'
+      + '<body style="font-family:system-ui,sans-serif;background:#11151c;color:#dbe5f0;padding:40px">'
+      + '<h2>Spotify connection failed</h2><p>You can close this tab and try again in open-quake.</p></body>';
+
+    server = http.createServer((req, res) => {
+      let parsed;
+      try { parsed = new URL(req.url, SPOTIFY_REDIRECT_URI); } catch (e) { return respond(res, 400, PAGE_ERR); }
+      if (parsed.pathname !== '/callback') { return respond(res, 404, PAGE_ERR); }
+      const params = parsed.searchParams;
+      if (params.get('state') !== state) { respond(res, 400, PAGE_ERR); return finish({ ok: false, error: 'state mismatch' }); }   // CSRF guard
+      const err = params.get('error');
+      if (err) { respond(res, 400, PAGE_ERR); return finish({ ok: false, error: 'Spotify authorization was denied or failed.' }); }
+      const code = params.get('code');
+      if (!code) { respond(res, 400, PAGE_ERR); return finish({ ok: false, error: 'No authorization code returned.' }); }
+      respond(res, 200, PAGE_OK);
+      spotify.exchangeCode({ clientId, code, codeVerifier: verifier, redirectUri: SPOTIFY_REDIRECT_URI, fetchImpl: spotifyFetch })
+        .then(tokens => {
+          if (!tokens || !tokens.refreshToken) return finish({ ok: false, error: 'Spotify did not return a refresh token.' });
+          saveSpotifyRefreshToken(tokens.refreshToken);   // saveConfig encrypts it at rest
+          finish({ ok: true });
+        })
+        .catch(() => finish({ ok: false, error: 'Token exchange failed.' }));   // never surface the error detail (may echo the code)
+    });
+    server.once('error', e => finish({ ok: false, error: e && e.code === 'EADDRINUSE' ? 'port 8888 busy' : 'Could not start the loopback server.' }));
+    server.listen(8888, '127.0.0.1', () => {
+      timer = setTimeout(() => finish({ ok: false, error: 'Timed out waiting for Spotify authorization.' }), 120000);
+      const authUrl = spotify.buildAuthorizeUrl({ clientId, redirectUri: SPOTIFY_REDIRECT_URI, codeChallenge: challenge, state, scopes: SPOTIFY_SCOPES });
+      if (!openExternalUrl(authUrl)) finish({ ok: false, error: 'Could not open the browser for Spotify sign-in.' });   // https URL via the validated opener
+    });
+  });
+}
+
 // Single-instance lock — a 2nd launch must not spawn a rival panel window (it fights the running
 // one over the device display → a white panel). Bail out; the running instance re-homes its panel.
 if (!app.requestSingleInstanceLock()) {
@@ -555,7 +635,7 @@ app.whenReady().then(async () => {
   // Lazy-required so a metrics/load failure can never crash the rest of the app.
   try {
     sysserver = require('./sysserver');
-    serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig });
+    serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig, getNowPlaying: process.platform === 'darwin' ? spotifyNowPlaying : null });
     ensureSystemViewPage(serverPort); ensureMusicPage();
     console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
   } catch (e) { console.log('local panel services failed to start:', e.message); }
@@ -618,6 +698,28 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('getAppIcon', (e, value) => isFrom(e, configWin) ? getAppIconDataUrl(value) : null);
   ipcMain.handle('fetchIconUrl', (e, url) => isFrom(e, configWin) ? fetchIconToCache(url) : { ok: false, error: 'unauthorized' });
+
+  // ---- Spotify connect/disconnect (editor only) ----
+  // connected = a refresh token is on file; clientId is returned so the editor can show/edit it (public).
+  ipcMain.handle('spotifyStatus', (e) => {
+    if (!isFrom(e, configWin)) return null;
+    const sp = spotifySettings();
+    return { connected: !!sp.refreshToken, clientId: sp.clientId || '' };
+  });
+  ipcMain.on('spotifySetClientId', (e, id) => {
+    if (!isFrom(e, configWin)) return;
+    if (typeof id !== 'string') return;
+    if (!config.settings) config.settings = {};
+    if (!config.settings.spotify) config.settings.spotify = {};
+    config.settings.spotify.clientId = id.trim();
+    saveConfig();
+  });
+  ipcMain.handle('spotifyConnect', (e) => isFrom(e, configWin) ? spotifyConnect() : { ok: false, error: 'unauthorized' });
+  ipcMain.handle('spotifyDisconnect', (e) => {
+    if (!isFrom(e, configWin)) return { ok: false, error: 'unauthorized' };
+    if (config.settings && config.settings.spotify) { delete config.settings.spotify.refreshToken; saveConfig(); }
+    return { ok: true };
+  });
 
   // Knob RGB ring (QMK VIA). The editor's Settings page reads the device's current lighting, then
   // applies each change live; "Save to device" persists it to the device's own flash.

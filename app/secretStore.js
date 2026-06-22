@@ -9,6 +9,8 @@
 //     auth.type === 'basic'  -> auth.pass            (NOT auth.user)
 //     auth.type === 'header' -> auth.headers[i].value (NOT auth.headers[i].name)
 //   app grids (g.kind === 'app'): each option key whose schema type is 'secret' (apps.json).
+//   settings:
+//     settings.spotify.refreshToken                   (NOT settings.spotify.clientId — clientId is public)
 const MARKER = 'oqenc:v1:';
 
 function createSecretStore({ safeStorage, loadApps, log = () => {} }) {
@@ -63,6 +65,15 @@ function createSecretStore({ safeStorage, loadApps, log = () => {} }) {
     }
   }
 
+  // Apply `fn` to exactly the secret fields under config.settings, in place (config is a clone supplied
+  // by the callers). Currently: settings.spotify.refreshToken (clientId is PUBLIC and stays plaintext).
+  function transformSettingsSecrets(config, fn) {
+    const sp = config && config.settings && config.settings.spotify;
+    if (sp && typeof sp === 'object' && typeof sp.refreshToken === 'string' && sp.refreshToken !== '') {
+      sp.refreshToken = fn(sp.refreshToken);
+    }
+  }
+
   // Walk every secret field of `g`; true if any holds a non-empty, not-yet-encrypted string.
   function gridHasPlaintextSecret(g) {
     let found = false;
@@ -77,15 +88,23 @@ function createSecretStore({ safeStorage, loadApps, log = () => {} }) {
   function encryptConfig(config) {
     const clone = structuredClone(config);
     (clone && Array.isArray(clone.grids) ? clone.grids : []).forEach(g => transformGridSecrets(g, encryptValue));
+    transformSettingsSecrets(clone, encryptValue);
     return clone;
   }
   function decryptConfig(config) {
     const clone = structuredClone(config);
     (clone && Array.isArray(clone.grids) ? clone.grids : []).forEach(g => transformGridSecrets(g, decryptValue));
+    transformSettingsSecrets(clone, decryptValue);
     return clone;
   }
   function hasPlaintextSecret(config) {
-    return (config && Array.isArray(config.grids) ? config.grids : []).some(gridHasPlaintextSecret);
+    if ((config && Array.isArray(config.grids) ? config.grids : []).some(gridHasPlaintextSecret)) return true;
+    let found = false;
+    transformSettingsSecrets(structuredClone(config || {}), v => {
+      if (typeof v === 'string' && v !== '' && !v.startsWith(MARKER)) found = true;
+      return v;
+    });
+    return found;
   }
 
   return {

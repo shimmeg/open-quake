@@ -31,6 +31,12 @@ const SMTC_B64 = Buffer.from(SMTC_PS, 'utf16le').toString('base64');
 const STALE_MS = 12000;   // if no session refresh for this long, report null
 let snapshot = null, snapTs = 0, timer = null, running = false, busy = false;
 
+// Optional async now-playing provider (e.g. the Spotify Web API client on macOS). When set, it REPLACES
+// the win32 SMTC poll: macOS-with-Spotify -> provider; win32 -> SMTC; otherwise null. A provider result
+// carries its own `art` URL (the page's setArt takes a URL), so it bypasses the SMTC art-helper path.
+let provider = null;
+function setProvider(fn) { provider = (typeof fn === 'function') ? fn : null; }
+
 // Album art via the bundled .NET helper. Path resolves dev vs packaged (asar.unpacked) like main.js.
 const ART_EXE = path.join(__dirname, 'native', 'smtc-art.exe').replace('app.asar', 'app.asar.unpacked');
 const artCache = {};      // trackKey -> dataURL | null  (fetched or failed; never re-fetched)
@@ -89,6 +95,7 @@ function lookupArtOnline(track, cb) {
 }
 
 function poll() {
+  if (provider) return Promise.resolve().then(provider).catch(() => null);   // injected source (Spotify) replaces SMTC
   if (process.platform !== 'win32') return Promise.resolve(null);   // SMTC is Windows-only; never spawn powershell elsewhere
   return new Promise(resolve => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-InputFormat', 'None', '-EncodedCommand', SMTC_B64],
@@ -103,9 +110,18 @@ function poll() {
 }
 
 async function tick() {
-  if (busy || !running) return;     // busy guard: don't stack PowerShell spawns
+  if (busy || !running) return;     // busy guard: don't stack PowerShell spawns / overlap provider calls
   busy = true;
-  try { const r = await poll(); if (r) { snapshot = r; snapTs = Date.now(); if (running) fetchArt(trackKey(r), r); } } catch (e) {}
+  try {
+    const r = await poll();
+    if (r) {
+      snapshot = r; snapTs = Date.now();
+      // A provider (Spotify) supplies its own art URL — cache it directly and skip the SMTC art helper
+      // (smtc-art.exe / iTunes lookup). The SMTC path still resolves art asynchronously via fetchArt.
+      if ('art' in r) artCache[trackKey(r)] = r.art || null;
+      else if (running) fetchArt(trackKey(r), r);
+    }
+  } catch (e) {}
   finally { busy = false; }
 }
 
@@ -117,4 +133,4 @@ function getSnapshot() {                                                    // n
   return Object.assign({}, snapshot, { art: (k in artCache) ? artCache[k] : null });
 }
 
-module.exports = { start, stop, getSnapshot };
+module.exports = { start, stop, getSnapshot, setProvider };
