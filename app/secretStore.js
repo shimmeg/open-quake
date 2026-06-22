@@ -28,11 +28,12 @@ function createSecretStore({ safeStorage, loadApps, log = () => {} }) {
   }
 
   // Decrypt one stored value. Plaintext (unmarked) values pass through unchanged — this is also the
-  // migration path: a pre-encryption config decrypts to itself. A decrypt failure logs and yields ''.
+  // migration path: a pre-encryption config decrypts to itself. A decrypt failure logs and preserves
+  // the marked ciphertext, so a later save does not erase the user's secret.
   function decryptValue(stored) {
     if (typeof stored !== 'string' || !stored.startsWith(MARKER)) return stored;
     try { return safeStorage.decryptString(Buffer.from(stored.slice(MARKER.length), 'base64')); }
-    catch (e) { log('secret decrypt failed: ' + e.message); return ''; }
+    catch (e) { log('secret decrypt failed: ' + e.message); return stored; }
   }
 
   // The option keys an app declares as type:'secret' in apps.json (e.g. Open WebUI api_key).
