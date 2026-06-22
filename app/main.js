@@ -660,4 +660,7 @@ app.whenReady().then(async () => {
 });
 }
 app.on('window-all-closed', () => {});
-app.on('before-quit', () => { try { if (sysserver) sysserver.stop(); } catch (e) {} });   // stop metrics timers + close the server
+app.on('before-quit', () => {
+  try { dev.stop(); } catch (e) {}                       // close HID devices + clear keep-alive/rescan timers — an open node-hid handle blocks process exit (Cmd+Q would hang -> force-quit)
+  try { if (sysserver) sysserver.stop(); } catch (e) {}  // stop metrics timers + close the local server
+});

@@ -139,6 +139,30 @@ async function measureLayout(cdp, viewport, time) {
   return result.result.value;
 }
 
+// 12h mode renders the hour as ONE wide card holding the whole hour ("1".."12"). Two-digit hours
+// (10/11/12) must fit that card at --fs without being clipped by the card's overflow:hidden.
+async function measureHourCard(cdp, viewport, hour) {
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: false });
+  await cdp.send('Page.navigate', { url: clockUrl });
+  await new Promise(resolve => setTimeout(resolve, 250));
+  const expression = `(() => {
+    settings.mode = '12'; settings.seconds = false; settings.date = true; build();
+    setCard('hh', ${JSON.stringify(hour)});
+    const card = cards['hh'];
+    const cs = getComputedStyle(document.documentElement);
+    const fs = cs.getPropertyValue('--fs').trim();
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums;font-size:' + fs + ';font-family:' + getComputedStyle(card).fontFamily;
+    probe.textContent = ${JSON.stringify(hour)}; document.body.appendChild(probe);
+    const textW = probe.getBoundingClientRect().width; probe.remove();
+    const rect = card.getBoundingClientRect();
+    return { hour: ${JSON.stringify(hour)}, cardWidth: rect.width, textWidth: textW, clipped: textW > rect.width + 0.5, overflowsViewport: rect.left < -0.5 || rect.right > innerWidth + 0.5 };
+  })()`;
+  const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails, null, 2));
+  return result.result.value;
+}
+
 async function main() {
   const chrome = findChrome();
   assert.ok(chrome, 'Chrome/Chromium not found; set CHROME_BIN to run the clock layout test');
@@ -178,6 +202,15 @@ async function main() {
         assert.deepEqual(layout.cards.map(card => card.text), [...time.hour, ...time.minute], `${viewport.name} ${time.label}: digit order`);
         assert.equal(layout.clock.overflowsViewport, false, `${viewport.name} ${time.label}: clock overflows viewport ${JSON.stringify(layout.clock)}`);
         assert.equal(layout.cards.some(card => card.overflowsViewport), false, `${viewport.name} ${time.label}: a digit card overflows viewport ${JSON.stringify(layout.cards)}`);
+      }
+    }
+
+    // 12h mode: the single wide hour card must hold two-digit hours (10/11/12) without clipping.
+    for (const viewport of viewports) {
+      for (const hour of ['10', '11', '12']) {
+        const m = await measureHourCard(cdp, viewport, hour);
+        assert.equal(m.clipped, false, `${viewport.name} 12h ${hour}: hour digits clipped by the card ${JSON.stringify(m)}`);
+        assert.equal(m.overflowsViewport, false, `${viewport.name} 12h ${hour}: hour card overflows viewport ${JSON.stringify(m)}`);
       }
     }
 
