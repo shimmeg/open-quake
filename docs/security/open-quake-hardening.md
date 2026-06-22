@@ -26,15 +26,28 @@ The current hardening priorities are:
 ## Local Secrets
 
 Configuration is stored locally under
-`~/Library/Application Support/open-quake` on macOS. Dashboard tokens, Basic
-Auth credentials, custom header values, Open WebUI endpoints, model IDs, and
-Open WebUI API keys are local plaintext secrets. The app does not send them to
-the developer, but it does send them to the dashboard or Open WebUI endpoint
-the user configured.
+`~/Library/Application Support/open-quake` on macOS. The app does not send these
+secrets to the developer, but it does send them to the dashboard or Open WebUI
+endpoint the user configured.
+
+The secret-typed config fields — dashboard tokens (`auth.type: ha`), Basic Auth
+passwords (`auth.pass`, not the username), custom dashboard header values
+(`auth.headers[].value`, not the header name), and the Open WebUI API key
+(`api_key`) — are encrypted at rest in `config.json` via Electron `safeStorage`
+(macOS Keychain-backed). Encrypted values are tagged with an `oqenc:v1:` marker
+and only decrypted in memory after the app is ready; the on-disk file never
+holds them in plaintext once encryption is available. An existing plaintext
+config is migrated transparently on first launch. When `safeStorage` reports
+encryption unavailable, the app falls back to writing those fields in plaintext
+and logs that fallback rather than failing silently. Open WebUI endpoints and
+model IDs remain plaintext (they are not secret-typed).
 
 Open WebUI API keys are served to the local chat page through the loopback
 `/app-config` route instead of URL query parameters. They must not be logged,
-stored in page URLs, or included in release notes and screenshots.
+stored in page URLs, or included in release notes and screenshots. The
+secret-at-rest behavior lives in `app/secretStore.js` (dependency-injected so it
+unit-tests without Electron) and is guarded by `npm run security:baseline` plus
+`scripts/security/test-secretstore.mjs`.
 
 ## Shell Command Macro Risk
 

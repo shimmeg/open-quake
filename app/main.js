@@ -1,6 +1,6 @@
 'use strict';
 // DK-QUAKE launcher: multi-grid panel + PC config editor, on the open Aris68Connector driver.
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -10,6 +10,7 @@ const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
 const actionRunner = require('./actionRunner');
 const { createMediaKeys } = require('./mediaKeys');
+const { createSecretStore } = require('./secretStore');
 
 const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
@@ -157,6 +158,11 @@ function loadApps() {
   try { return JSON.parse(fs.readFileSync(path.join(APPS_DIR, 'apps.json'), 'utf8')); }
   catch (e) { console.log('apps manifest load error:', e.message); return []; }
 }
+// Secret-at-rest store: encrypts the secret-typed config fields (dashboard tokens / Basic passwords /
+// custom header values / app secret options) in config.json via Electron safeStorage. The in-memory
+// `config` stays plaintext; encryption happens only at the disk boundary (saveConfig). safeStorage
+// needs app-ready, so decryptConfig runs as the first thing in whenReady, not at module load.
+const secretStore = createSecretStore({ safeStorage, loadApps, log: m => console.log(m) });
 // Build the file: URL for an app page, encoding its options as a #hash (file:// drops a ?query).
 function appOptionQuery(def, opts, include) {
   return (def.options || []).map(o => {
@@ -194,7 +200,11 @@ function activeServedAppConfig(appId) {
   });
   return { app: appId, options };
 }
-function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch (e) { console.log('config save error:', e.message); } }
+// Persist config with secret fields encrypted at rest. encryptConfig clones, so the in-memory
+// `config` keeps its plaintext secrets — consumers (renderer HA token, Basic/header auth, served
+// app config) read the live plaintext. When safeStorage is unavailable, encryptValue logs nothing
+// itself but falls back to plaintext on disk (see decrypt passthrough on the next load).
+function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(secretStore.encryptConfig(config), null, 2)); } catch (e) { console.log('config save error:', e.message); } }
 function activeGrid() { return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || { cols: 8, rows: 2, tiles: [] }; }
 function gridList() { return config.grids.map(g => ({ id: g.id, name: g.name })); }
 // Tell the local server which served page is on screen so it runs only that page's poller
@@ -529,6 +539,16 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  // safeStorage requires app-ready, so secrets loaded at module init are still encrypted strings in
+  // `config` here — decrypt them in memory before anything reads a secret VALUE. If the on-disk config
+  // still has plaintext secrets and encryption is now available, migrate it to encrypted-at-rest.
+  const needsMigration = secretStore.hasPlaintextSecret(config);
+  config = secretStore.decryptConfig(config);
+  if (secretStore.available()) {
+    if (needsMigration) saveConfig();                        // migrate plaintext config to encrypted-at-rest
+  } else if (needsMigration) {
+    console.log('safeStorage unavailable — config secrets kept in plaintext on disk (fallback)');
+  }
   try { powerSaveBlocker.start('prevent-display-sleep'); } catch (e) {}
   createTray();
   // SystemView: live local metrics server on 127.0.0.1 (OS-assigned port) + ensure the dashboard page.
