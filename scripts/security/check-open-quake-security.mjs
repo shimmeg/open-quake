@@ -261,6 +261,16 @@ for (const ch of ['launch', 'saveConfigFromEditor', 'getConfig', 'fetchIconUrl']
   if (!re.test(main)) fail('ipc-sender-validation', `app/main.js ipc '${ch}' handler must validate the sender via isFrom()`);
 }
 
+// --- Secrets at rest: secret-typed config fields encrypted in config.json via Electron safeStorage ---
+// Dashboard tokens / Basic passwords / custom header values / Open WebUI api_key must be encrypted on
+// disk and only decrypted in memory; saveConfig must persist the encrypted form.
+if (!/safeStorage/.test(main)) {
+  fail('secrets-at-rest', 'app/main.js must require safeStorage from electron for config secret encryption');
+}
+if (!/secretStore\.encryptConfig\(config\)/.test(main)) {
+  fail('secrets-at-rest', 'app/main.js saveConfig must persist secretStore.encryptConfig(config) (secrets encrypted at rest)');
+}
+
 // --- CSP: every page runs under a strict script-src 'self' with no inline <script> ---
 // Inline scripts were extracted to external files so 'unsafe-inline' could be dropped from script-src
 // (the defense-in-depth layer behind the renderer-side escaping). These guards keep it that way.
