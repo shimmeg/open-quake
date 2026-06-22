@@ -515,7 +515,14 @@
         <label class="iconopt" style="width:auto"><input type="checkbox" id="sRotG"> Grids</label>
         <label class="iconopt" style="width:auto"><input type="checkbox" id="sRotD"> Dashboards</label>
         <label class="iconopt" style="width:auto"><input type="checkbox" id="sRotA"> Apps</label></div>
-      <p class="hint">A page rotates only if its category is ticked here <i>and</i> that page's own “Include in rotation” box is checked — the box appears on each page once its category is enabled. Start/stop any time from the knob menu (double-click) or the tray.</p>`;
+      <p class="hint">A page rotates only if its category is ticked here <i>and</i> that page's own “Include in rotation” box is checked — the box appears on each page once its category is enabled. Start/stop any time from the knob menu (double-click) or the tray.</p>
+
+      <p class="sectitle" style="margin-top:22px">Spotify (now playing)</p>
+      <div class="row"><label>Client ID</label><input id="sSpClientId" placeholder="from your Spotify app dashboard"></div>
+      <div class="row" style="margin-top:6px"><button class="primary" id="sSpConnect">Connect Spotify</button>
+        <button id="sSpDisconnect">Disconnect</button>
+        <span id="sSpStatus" class="hint" style="margin:0 0 0 10px">checking…</span></div>
+      <p class="hint" id="sSpMsg" style="margin:6px 0 0">Shows the track playing in Spotify on the Music page (macOS). Create an app at developer.spotify.com, add the redirect URI <code>http://127.0.0.1:8888/callback</code>, paste the Client ID above, then Connect and approve in your browser. Needs the Spotify desktop or web player active.</p>`;
 
     // Hardware tab — knob ring + microphone
     const hwHtml = `
@@ -566,6 +573,7 @@
       document.getElementById('sRotG').onchange = e => { const r = currentRot(); r.cats.grids = e.target.checked; saveRot(r); };
       document.getElementById('sRotD').onchange = e => { const r = currentRot(); r.cats.dashboards = e.target.checked; saveRot(r); };
       document.getElementById('sRotA').onchange = e => { const r = currentRot(); r.cats.apps = e.target.checked; saveRot(r); };
+      wireSpotify();
     } else {
       // Lighting writes go straight to the device (and persist in config) via the main process — no Save needed.
       const live = patch => { Object.assign(L, patch); if (!config.settings) config.settings = {}; config.settings.lighting = Object.assign({}, L); configApi.setLighting(patch); };
@@ -587,6 +595,48 @@
         msg.textContent = ok ? 'saved to device ✓' : 'save failed';
       };
     }
+  }
+
+  // ---- Spotify now-playing settings (client ID + connect/disconnect) ----
+  // The Client ID is saved on its own (spotifySetClientId) — independent of the editor's Save model —
+  // because Connect needs it stored in the main process before the OAuth flow runs. The refresh token
+  // is stored (encrypted at rest) by the main process on a successful Connect; the editor never sees it.
+  function wireSpotify() {
+    const idEl = document.getElementById('sSpClientId');
+    const connectEl = document.getElementById('sSpConnect');
+    const disconnectEl = document.getElementById('sSpDisconnect');
+    const statusEl = document.getElementById('sSpStatus');
+    const msgEl = document.getElementById('sSpMsg');
+    if (!idEl || !connectEl || !disconnectEl || !statusEl || !configApi.spotifyStatus) {
+      if (statusEl) statusEl.textContent = '';
+      return;
+    }
+    const refresh = async () => {
+      let st = null;
+      try { st = await configApi.spotifyStatus(); } catch (e) {}
+      st = st || { connected: false, clientId: '' };
+      if (document.activeElement !== idEl) idEl.value = st.clientId || '';
+      statusEl.textContent = st.connected ? 'Connected ✓' : 'Not connected';
+      statusEl.style.color = st.connected ? '#7CFFB2' : '#6f8298';
+      disconnectEl.disabled = !st.connected;
+    };
+    idEl.oninput = () => { configApi.spotifySetClientId(idEl.value); };
+    connectEl.onclick = async () => {
+      configApi.spotifySetClientId(idEl.value);   // make sure the latest ID is stored before the flow
+      connectEl.disabled = true; statusEl.textContent = 'opening browser…';
+      let r = null;
+      try { r = await configApi.spotifyConnect(); } catch (e) {}
+      connectEl.disabled = false;
+      if (r && r.ok) { if (msgEl) msgEl.textContent = 'Spotify connected — open the Music page to see the current track.'; }
+      else if (msgEl) { msgEl.textContent = 'Connect failed: ' + ((r && r.error) || 'unknown error') + '.'; }
+      refresh();
+    };
+    disconnectEl.onclick = async () => {
+      try { await configApi.spotifyDisconnect(); } catch (e) {}
+      if (msgEl) msgEl.textContent = 'Disconnected. Reconnect any time.';
+      refresh();
+    };
+    refresh();
   }
 
   function addPage(kind) {

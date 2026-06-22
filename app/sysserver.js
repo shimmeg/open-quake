@@ -121,13 +121,16 @@ async function handler(req, res) {
   res.writeHead(404); res.end();
 }
 
-// opts: { onMedia(cmd), onLaunch(i), getMusicTiles(), getAppConfig(appId) } — all optional.
+// opts: { onMedia(cmd), onLaunch(i), getMusicTiles(), getAppConfig(appId), getNowPlaying() } — all optional.
+// getNowPlaying is an async now-playing source (e.g. the Spotify Web API client on macOS); when given,
+// it becomes the now-playing provider and replaces the win32 SMTC poll (see nowplaying.setProvider).
 function start(opts) {
   opts = opts || {};
   onMedia = opts.onMedia || null;
   onLaunch = opts.onLaunch || null;
   getMusicTiles = opts.getMusicTiles || null;
   getAppConfig = opts.getAppConfig || null;
+  nowplaying.setProvider(opts.getNowPlaying || null);
   return new Promise((resolve, reject) => {
     if (server) return resolve(server.address().port);
     try { sysHtml = fs.readFileSync(path.join(__dirname, 'sysview.html'), 'utf8'); } catch (e) {}

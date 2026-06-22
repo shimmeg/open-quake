@@ -18,7 +18,7 @@ function stub(rel, exports) {
   require.cache[p] = { id: p, filename: p, loaded: true, exports };
 }
 stub('../../app/sysmetrics.js', { start() {}, stop() {}, getSnapshot() { return {}; } });
-stub('../../app/nowplaying.js', { start() {}, stop() {}, getSnapshot() { return null; } });
+stub('../../app/nowplaying.js', { start() {}, stop() {}, getSnapshot() { return null; }, setProvider() {} });
 
 const sysserver = require('../../app/sysserver.js');
 

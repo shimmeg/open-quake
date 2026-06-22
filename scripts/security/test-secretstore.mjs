@@ -129,6 +129,37 @@ test('hasPlaintextSecret detects a not-yet-encrypted secret and clears once encr
   assert.equal(store.hasPlaintextSecret({}), false);
 });
 
+test('settings.spotify.refreshToken is encrypted; clientId stays plaintext', () => {
+  const store = makeStore();
+  const cfg = { grids: [], settings: { spotify: { clientId: 'public-id', refreshToken: 'rt-secret' } } };
+  const enc = store.encryptConfig(cfg);
+
+  assert.ok(enc.settings.spotify.refreshToken.startsWith(store.MARKER), 'spotify refresh token must be encrypted');
+  assert.equal(enc.settings.spotify.clientId, 'public-id', 'spotify client id is public and must stay plaintext');
+
+  const dec = store.decryptConfig(enc);
+  assert.equal(dec.settings.spotify.refreshToken, 'rt-secret', 'refresh token must round-trip');
+  assert.equal(dec.settings.spotify.clientId, 'public-id');
+});
+
+test('hasPlaintextSecret detects a plaintext spotify refresh token', () => {
+  const store = makeStore();
+  const cfg = { grids: [], settings: { spotify: { clientId: 'pub', refreshToken: 'rt-secret' } } };
+  assert.equal(store.hasPlaintextSecret(cfg), true);
+  assert.equal(store.hasPlaintextSecret(store.encryptConfig(cfg)), false);
+  // clientId alone (no refresh token) is not a secret.
+  assert.equal(store.hasPlaintextSecret({ grids: [], settings: { spotify: { clientId: 'pub' } } }), false);
+  assert.equal(store.hasPlaintextSecret({ grids: [], settings: { spotify: { clientId: 'pub', refreshToken: '' } } }), false);
+});
+
+test('encryptConfig does not mutate a config carrying a spotify refresh token', () => {
+  const store = makeStore();
+  const cfg = { grids: [], settings: { spotify: { clientId: 'pub', refreshToken: 'rt-secret' } } };
+  const snapshot = JSON.stringify(cfg);
+  store.encryptConfig(cfg);
+  assert.equal(JSON.stringify(cfg), snapshot, 'encryptConfig must not mutate its input settings');
+});
+
 test('secretKeysForApp returns only type:secret option keys', () => {
   const store = makeStore();
   assert.deepEqual(store.secretKeysForApp('chat'), ['api_key']);

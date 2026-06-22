@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('openQuakeConfig', {
   getLighting() { return ipcRenderer.invoke('getLighting'); },
   setLighting(lighting) { ipcRenderer.send('setLighting', lighting); },
   saveLightingToDevice() { return ipcRenderer.invoke('saveLightingToDevice'); },
+  spotifyStatus() { return ipcRenderer.invoke('spotifyStatus'); },
+  spotifySetClientId(clientId) { ipcRenderer.send('spotifySetClientId', clientId); },
+  spotifyConnect() { return ipcRenderer.invoke('spotifyConnect'); },
+  spotifyDisconnect() { return ipcRenderer.invoke('spotifyDisconnect'); },
   pathToFileURL(filePath) {
     try { return pathToFileURL(filePath).href; }
     catch (e) { return ''; }

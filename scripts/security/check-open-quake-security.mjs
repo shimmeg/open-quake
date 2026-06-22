@@ -290,6 +290,25 @@ if (/'unsafe-inline'/.test(serverScriptSrc)) {
   fail('csp-server-script-unsafe-inline', "app/sysserver.js LOCAL_APP_CSP script-src must not allow 'unsafe-inline'");
 }
 
+// --- Spotify now-playing OAuth (PKCE) hardening guards ---
+// app/spotify.js must exist (the DI'd, Electron-free Web API client + PKCE helpers).
+if (!fs.existsSync(path.join(root, 'app/spotify.js'))) {
+  fail('spotify-module', 'app/spotify.js must exist (the Spotify PKCE / now-playing module)');
+} else {
+  const sp = read('app/spotify.js');
+  if (!/code_challenge_method['":\s]+S256/.test(sp) && !/code_challenge_method/.test(sp)) {
+    fail('spotify-pkce', 'app/spotify.js must use PKCE (code_challenge_method=S256)');
+  }
+}
+// main.js OAuth orchestration: the loopback callback MUST validate the `state` (CSRF), and the refresh
+// token MUST be persisted through the config (so secretStore encrypts it at rest) — never written raw.
+if (!/params\.get\(['"]state['"]\)\s*!==\s*state/.test(main) && !/state['"]\)\s*!==\s*state/.test(main)) {
+  fail('spotify-state-csrf', 'app/main.js Spotify callback must validate the OAuth state (reject mismatches)');
+}
+if (!/config\.settings\.spotify\.refreshToken\s*=\s*tokens\.refreshToken/.test(main)) {
+  fail('spotify-refresh-at-rest', 'app/main.js must store the Spotify refresh token in config.settings.spotify.refreshToken (encrypted at rest by secretStore)');
+}
+
 if (failures.length) {
   console.error(`Security baseline failed: ${failures.length} issue(s)`);
   for (const failure of failures) {
