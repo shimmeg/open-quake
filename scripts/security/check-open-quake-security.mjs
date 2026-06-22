@@ -186,7 +186,7 @@ if (!/OQ_MARKDOWN_URL_PROTOCOLS/.test(chatWidget) || !/javascript:/i.test(chatWi
   fail('markdown-sanitizer-urls', 'app/ChatWidget.js sanitizer must enforce a URL protocol allowlist that excludes javascript: URLs');
 }
 
-for (const rel of ['app/index.html', 'app/config.html', 'app/chatview.html', 'app/sysview.html', 'app/musicview.html']) {
+for (const rel of ['app/index.html', 'app/config.html', 'app/chatview.html', 'app/sysview.html', 'app/musicview.html', 'apps/clock.html']) {
   assertPattern(
     rel,
     /<meta\s+http-equiv=["']Content-Security-Policy["']/i,
@@ -225,18 +225,19 @@ if (!/server\.listen\s*\(\s*0\s*,\s*['"]127\.0\.0\.1['"]/.test(sysserver)) {
 
 // Panel renderer must build tiles via DOM/textContent, never interpolate config-controlled
 // label/icon into innerHTML (stored-XSS -> openQuakePanel.launch() command-execution vector).
-const indexHtml = read('app/index.html');
-if (/innerHTML[^\n;]*\$\{[^}]*\bt\.(label|icon)\b/.test(indexHtml)) {
-  fail('panel-tile-xss', 'app/index.html must not interpolate tile label/icon into innerHTML');
+// (The panel script lives in the extracted app/index.js since the CSP hardening.)
+const indexJs = read('app/index.js');
+if (/innerHTML[^\n;]*\$\{[^}]*\bt\.(label|icon)\b/.test(indexJs)) {
+  fail('panel-tile-xss', 'app/index.js must not interpolate tile label/icon into innerHTML');
 }
-if (!/\.textContent\s*=\s*t\.label/.test(indexHtml)) {
-  fail('panel-tile-xss', 'app/index.html must render the tile label via textContent');
+if (!/\.textContent\s*=\s*t\.label/.test(indexJs)) {
+  fail('panel-tile-xss', 'app/index.js must render the tile label via textContent');
 }
 
 // Served Music grid must escape config-controlled icon fields before HTML insertion.
-const musicHtml = read('app/musicview.html');
-if (!/esc\(t\.iconSrc\)/.test(musicHtml) || !/esc\(t\.icon\b/.test(musicHtml)) {
-  fail('music-tile-xss', 'app/musicview.html must escape t.iconSrc / t.icon before HTML insertion');
+const musicJs = read('app/musicview.js');
+if (!/esc\(t\.iconSrc\)/.test(musicJs) || !/esc\(t\.icon\b/.test(musicJs)) {
+  fail('music-tile-xss', 'app/musicview.js must escape t.iconSrc / t.icon before HTML insertion');
 }
 
 // Localhost server must reject a foreign Host (DNS rebinding) on every route and require a
@@ -258,6 +259,25 @@ if (!/function isFrom\s*\(/.test(main)) {
 for (const ch of ['launch', 'saveConfigFromEditor', 'getConfig', 'fetchIconUrl']) {
   const re = new RegExp(`ipcMain\\.(?:on|handle)\\('${ch}'[\\s\\S]{0,160}?isFrom\\(`);
   if (!re.test(main)) fail('ipc-sender-validation', `app/main.js ipc '${ch}' handler must validate the sender via isFrom()`);
+}
+
+// --- CSP: every page runs under a strict script-src 'self' with no inline <script> ---
+// Inline scripts were extracted to external files so 'unsafe-inline' could be dropped from script-src
+// (the defense-in-depth layer behind the renderer-side escaping). These guards keep it that way.
+const inlineScriptRe = /<script(?![^>]*\bsrc=)[^>]*>\s*\S/i;   // a <script> with no src= and a non-whitespace body
+for (const rel of ['app/index.html', 'app/config.html', 'app/chatview.html', 'app/sysview.html', 'app/musicview.html', 'apps/clock.html']) {
+  const src = read(rel);
+  const scriptSrc = (src.match(/script-src[^;"]*/) || [''])[0];
+  if (/'unsafe-inline'/.test(scriptSrc)) {
+    fail('csp-script-unsafe-inline', `${rel}: CSP script-src must not allow 'unsafe-inline'`);
+  }
+  if (inlineScriptRe.test(src)) {
+    fail('csp-inline-script', `${rel}: inline <script> body found — extract it to an external file (script-src is 'self')`);
+  }
+}
+const serverScriptSrc = (sysserver.match(/script-src[^"]*/) || [''])[0];
+if (/'unsafe-inline'/.test(serverScriptSrc)) {
+  fail('csp-server-script-unsafe-inline', "app/sysserver.js LOCAL_APP_CSP script-src must not allow 'unsafe-inline'");
 }
 
 if (failures.length) {
