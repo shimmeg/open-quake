@@ -20,7 +20,7 @@ function robotStub() {
 
 test('main process and Music page keep the media backend narrow', () => {
   const mainSource = fs.readFileSync('app/main.js', 'utf8');
-  const musicSource = fs.readFileSync('app/musicview.html', 'utf8');
+  const musicSource = fs.readFileSync('app/musicview.js', 'utf8');   // Music page script (extracted out-of-line for CSP)
   const sysserverSource = fs.readFileSync('app/sysserver.js', 'utf8');
 
   assert.match(mainSource, /require\('\.\/mediaKeys'\)/, 'main process must use the narrow mediaKeys adapter');

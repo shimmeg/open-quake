@@ -24,7 +24,7 @@ const FALLBACK = '<!doctype html><meta charset="utf-8">'
 const MEDIA_CMDS = { playpause: 1, next: 1, prev: 1 };
 const LOCAL_APP_CSP = [
   "default-src 'self' http: https: file: data: blob:",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: file: http: https:",
   "font-src 'self' data:",
@@ -36,8 +36,22 @@ const LOCAL_APP_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+// Static page assets served verbatim. Page scripts were moved out-of-line so the pages can run under a
+// strict script-src 'self' (no 'unsafe-inline'); each extracted file is served here, keyed by request
+// path (the on-disk name is the path minus its leading slash). Content-type per entry.
+const STATIC_FILES = {
+  '/ChatWidget.js': 'application/javascript; charset=utf-8',
+  '/owui-widget.css': 'text/css; charset=utf-8',
+  '/sysview.js': 'application/javascript; charset=utf-8',
+  '/musicview.js': 'application/javascript; charset=utf-8',
+  '/chatview-config.js': 'application/javascript; charset=utf-8',
+  '/chatview-main.js': 'application/javascript; charset=utf-8',
+  '/chatview-ptt.js': 'application/javascript; charset=utf-8',
+};
+
 let server = null, onMedia = null, onLaunch = null, getMusicTiles = null, getAppConfig = null;
-let sysHtml = FALLBACK, musicHtml = FALLBACK, chatHtml = FALLBACK, chatJs = '', chatCss = '';
+let sysHtml = FALLBACK, musicHtml = FALLBACK, chatHtml = FALLBACK;
+const staticAssets = {};   // request path -> { body, type }; populated at start()
 
 function headers(type) { return { 'Content-Type': type, 'Cache-Control': 'no-store', 'Content-Security-Policy': LOCAL_APP_CSP }; }
 function html(res, body) { res.writeHead(200, headers('text/html; charset=utf-8')); res.end(body); }
@@ -74,8 +88,8 @@ async function handler(req, res) {
   if (url === '/' || url === '/index.html') return html(res, sysHtml);
   if (url === '/music') return html(res, musicHtml);
   if (url === '/chat') return html(res, chatHtml);
-  if (url === '/ChatWidget.js') { res.writeHead(200, headers('application/javascript; charset=utf-8')); return res.end(chatJs); }
-  if (url === '/owui-widget.css') { res.writeHead(200, headers('text/css; charset=utf-8')); return res.end(chatCss); }
+  const asset = staticAssets[url];
+  if (asset) { res.writeHead(200, headers(asset.type)); return res.end(asset.body); }
   // Below here: side effects (/launch, /media), live data (/metrics, /nowplaying, /musictiles), or
   // secrets (/app-config). Require the request to originate from our own served page — not a
   // cross-site fetch, image, form, or navigation.
@@ -119,8 +133,9 @@ function start(opts) {
     try { sysHtml = fs.readFileSync(path.join(__dirname, 'sysview.html'), 'utf8'); } catch (e) {}
     try { musicHtml = fs.readFileSync(path.join(__dirname, 'musicview.html'), 'utf8'); } catch (e) {}
     try { chatHtml = fs.readFileSync(path.join(__dirname, 'chatview.html'), 'utf8'); } catch (e) {}
-    try { chatJs = fs.readFileSync(path.join(__dirname, 'ChatWidget.js'), 'utf8'); } catch (e) {}
-    try { chatCss = fs.readFileSync(path.join(__dirname, 'owui-widget.css'), 'utf8'); } catch (e) {}
+    for (const [route, type] of Object.entries(STATIC_FILES)) {
+      try { staticAssets[route] = { body: fs.readFileSync(path.join(__dirname, route.slice(1)), 'utf8'), type }; } catch (e) {}
+    }
     // NB: the pollers are NOT started here. They're gated by which panel page is shown — main.js
     // calls setActivePage() on every page switch so each poller runs only while its page is on screen.
     server = http.createServer((req, res) => { handler(req, res).catch(() => { try { res.writeHead(500); res.end(); } catch (e) {} }); });

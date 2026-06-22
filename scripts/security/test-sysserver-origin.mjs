@@ -41,7 +41,7 @@ after(() => sysserver.stop());
 function req(path, headers) {
   return new Promise((resolve, reject) => {
     const r = http.request({ host: '127.0.0.1', port, path, method: 'GET', headers }, res => {
-      let body = ''; res.on('data', d => (body += d)); res.on('end', () => resolve({ status: res.statusCode, body }));
+      let body = ''; res.on('data', d => (body += d)); res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], body }));
     });
     r.on('error', reject);
     r.end();
@@ -90,4 +90,24 @@ test('page + asset routes load under a top-level navigation (Sec-Fetch-Site: non
   for (const path of ['/', '/music', '/chat']) {
     assert.equal((await req(path, { Host: LOOPBACK, 'Sec-Fetch-Site': 'none' })).status, 200, `page route ${path} must load under navigation`);
   }
+});
+
+// The CSP work moved each served page's inline <script> to an external file; the server must serve
+// those files as javascript, and each page must reference its own script.
+test('extracted page scripts are served as JavaScript and referenced by their pages', async () => {
+  for (const route of ['/sysview.js', '/musicview.js', '/chatview-config.js', '/chatview-main.js', '/chatview-ptt.js', '/ChatWidget.js']) {
+    const r = await req(route, { Host: LOOPBACK, 'Sec-Fetch-Site': 'same-origin' });
+    assert.equal(r.status, 200, `${route} must be served`);
+    assert.match(r.type || '', /javascript/, `${route} must be served as javascript`);
+    assert.ok(r.body.length > 0, `${route} must not be empty`);
+  }
+  // Page scripts are public assets (served before the same-origin gate, like the page routes).
+  assert.equal((await req('/sysview.js', { Host: LOOPBACK })).status, 200, 'page scripts must load as public assets');
+  // Each page references its own extracted script(s).
+  assert.match((await req('/', { Host: LOOPBACK, 'Sec-Fetch-Site': 'none' })).body, /<script src="\/sysview\.js">/, 'sysview page must load /sysview.js');
+  assert.match((await req('/music', { Host: LOOPBACK, 'Sec-Fetch-Site': 'none' })).body, /<script src="\/musicview\.js">/, 'music page must load /musicview.js');
+  const chat = (await req('/chat', { Host: LOOPBACK, 'Sec-Fetch-Site': 'none' })).body;
+  assert.match(chat, /<script src="\/chatview-config\.js">/, 'chat page must load /chatview-config.js');
+  assert.match(chat, /<script type="module" src="\/chatview-main\.js">/, 'chat page must load /chatview-main.js as a module');
+  assert.match(chat, /<script src="\/chatview-ptt\.js">/, 'chat page must load /chatview-ptt.js');
 });
