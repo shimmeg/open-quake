@@ -20,10 +20,10 @@
       "cols": 2,
       "rows": 2,
       "defaults": [
-        { "label": "Spotify",     "icon": "🎵", "type": "url", "value": "https://open.spotify.com" },
-        { "label": "YT Music",    "icon": "📺", "type": "url", "value": "https://music.youtube.com" },
-        { "label": "Apple Music", "icon": "🍎", "type": "url", "value": "https://music.apple.com" },
-        { "label": "Tidal",       "icon": "🌊", "type": "url", "value": "https://listen.tidal.com" }
+        { "label": "Spotify",     "icon": "♪", "iconType": "url", "iconUrl": "https://open.spotify.com/favicon.ico",  "iconAutoSeed": true, "type": "url", "value": "https://open.spotify.com" },
+        { "label": "YT Music",    "icon": "▶", "iconType": "url", "iconUrl": "https://music.youtube.com/favicon.ico", "iconAutoSeed": true, "type": "url", "value": "https://music.youtube.com" },
+        { "label": "Apple Music", "icon": "A", "iconType": "url", "iconUrl": "https://music.apple.com/favicon.ico",    "iconAutoSeed": true, "type": "url", "value": "https://music.apple.com" },
+        { "label": "Tidal",       "icon": "T", "iconType": "url", "iconUrl": "https://listen.tidal.com/favicon.ico",   "iconAutoSeed": true, "type": "url", "value": "https://listen.tidal.com" }
       ]
     }
   },

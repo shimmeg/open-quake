@@ -11,6 +11,7 @@ const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connect
 const http = require('http');
 const actionRunner = require('./actionRunner');
 const { createMediaKeys } = require('./mediaKeys');
+const { seedDefaultIconCachesInGrid } = require('./defaultIcons');
 const { createSecretStore } = require('./secretStore');
 const spotify = require('./spotify');
 
@@ -81,7 +82,7 @@ function ensureSystemViewPage(port) {
 // The Music controller is a built-in APP page (kind:'app', app:'music') that embeds a programmable
 // 2x2 tile grid — edited in the editor exactly like Default/Media/Dev, its tiles launched via runAction.
 // Ensure one exists on first run; respect deletion thereafter (musicInjected gate).
-function ensureMusicPage() {
+async function ensureMusicPage() {
   if (!config.grids) config.grids = [];
   let g = config.grids.find(x => x.id === 'music');
   if (!g) {
@@ -97,6 +98,7 @@ function ensureMusicPage() {
     const def = loadApps().find(a => a.id === 'music');
     g.tiles = ((def && def.grid && def.grid.defaults) || []).map(t => Object.assign({}, t));
   }
+  await seedDefaultIconCachesInGrid(g, fetchIconToCache, { log: message => console.log(message) });
   saveConfig();
 }
 // The Music app's embedded grid is served to the page (resolved icons) and its taps launched, both
@@ -642,7 +644,7 @@ app.whenReady().then(async () => {
   try {
     sysserver = require('./sysserver');
     serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig, getNowPlaying: process.platform === 'darwin' ? spotifyNowPlaying : null });
-    ensureSystemViewPage(serverPort); ensureMusicPage();
+    ensureSystemViewPage(serverPort); await ensureMusicPage();
     console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
   } catch (e) { console.log('local panel services failed to start:', e.message); }
   sweepIconCache();   // clean up orphaned URL-icon cache files left by prior sessions
@@ -680,11 +682,16 @@ app.whenReady().then(async () => {
   ipcMain.on('openExternal', (e, url) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openExternalUrl(url); });
   ipcMain.handle('getConfig', (e) => isFrom(e, configWin) ? config : null);
   ipcMain.handle('getApps', (e) => isFrom(e, configWin) ? loadApps() : []);
-  ipcMain.on('saveConfigFromEditor', (e, newCfg) => {
+  ipcMain.on('saveConfigFromEditor', async (e, newCfg) => {
     if (!isFrom(e, configWin) || !newCfg || typeof newCfg !== 'object' || !Array.isArray(newCfg.grids)) return;
     const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
     const wasRot = rotationCfg().enabled;                        // detect a fresh off->on to auto-start (else keep the runtime pause)
     config = newCfg;
+    for (const g of config.grids) {
+      if (g && g.kind === 'app' && g.app === 'music') {
+        await seedDefaultIconCachesInGrid(g, fetchIconToCache, { log: message => console.log(message) });
+      }
+    }
     if (config.grids.some(g => g.id === active)) config.activeGridId = active;
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
     saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot);

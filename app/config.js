@@ -200,7 +200,12 @@
   }
   function unmergeTile(g) { flattenAt(g, ti); selEnd = -1; render(); markDirty(); }
   function swapTiles(g, a, b) { const t = g.tiles[a]; g.tiles[a] = g.tiles[b]; g.tiles[b] = t; ti = b; selEnd = -1; render(); markDirty(); }
-  function tileFields(t) { return { label: (t && t.label) || '', icon: (t && t.icon) || '', type: (t && t.type) || '', value: (t && t.value) || '', iconType: (t && t.iconType) || 'emoji', iconImage: (t && t.iconImage) || '', iconUrl: (t && t.iconUrl) || '', iconCache: (t && t.iconCache) || '' }; }
+  function tileFields(t) {
+    const out = { label: (t && t.label) || '', icon: (t && t.icon) || '', type: (t && t.type) || '', value: (t && t.value) || '', iconType: (t && t.iconType) || 'emoji', iconImage: (t && t.iconImage) || '', iconUrl: (t && t.iconUrl) || '', iconCache: (t && t.iconCache) || '' };
+    if (t && t.iconAutoSeed === true) out.iconAutoSeed = true;
+    return out;
+  }
+  function clearAutoSeed(t) { if (t) delete t.iconAutoSeed; }
   function handleDrop(g, from, to) {
     if (from < 0 || from === to) return;
     const sf = g.tiles[from], sw = (sf && sf.w) || 1, sh = (sf && sf.h) || 1;
@@ -247,10 +252,10 @@
       <div class="row"><button class="danger" id="tClear">Clear tile</button></div>
       <p class="hint">${typeHint(t.type)}</p>
     </div>`;
-    document.getElementById('tLabel').oninput = e => { t.label = e.target.value; renderTiles(); markDirty(); };
-    document.getElementById('tType').onchange = e => { const prev = t.type; t.type = e.target.value; if (t.type === 'page' || prev === 'page') t.value = ''; render(); markDirty(); };
+    document.getElementById('tLabel').oninput = e => { t.label = e.target.value; clearAutoSeed(t); renderTiles(); markDirty(); };
+    document.getElementById('tType').onchange = e => { const prev = t.type; t.type = e.target.value; clearAutoSeed(t); if (t.type === 'page' || prev === 'page') t.value = ''; render(); markDirty(); };
     const tv = document.getElementById('tValue');
-    if (tv) tv.oninput = e => { t.value = e.target.value; renderTiles(); renderIconPane(); markDirty(); };
+    if (tv) tv.oninput = e => { t.value = e.target.value; clearAutoSeed(t); renderTiles(); renderIconPane(); markDirty(); };
     const tp = document.getElementById('tPage');
     if (tp) { if (tp.value && tp.value !== t.value) { t.value = tp.value; markDirty(); } tp.onchange = e => { t.value = e.target.value; renderTiles(); markDirty(); }; }
     document.getElementById('tClear').onclick = () => { flattenAt(g, ti); g.tiles[ti] = blankTile(); render(); markDirty(); };
@@ -275,7 +280,7 @@
       <div class="icondetail" id="icondetail"></div>
       <div class="iconpreview" id="iconpreview"></div>
     </div>`;
-    el.querySelectorAll('input[name=ic]').forEach(r => r.onchange = e => { t.iconType = e.target.value; renderIconPane(); renderTiles(); markDirty(); });
+    el.querySelectorAll('input[name=ic]').forEach(r => r.onchange = e => { t.iconType = e.target.value; clearAutoSeed(t); renderIconPane(); renderTiles(); markDirty(); });
     renderIconDetail(t);
     renderIconPreview(t);
   }
@@ -285,13 +290,13 @@
     const type = iconTypeOf(t);
     if (type === 'emoji') {
       el.innerHTML = `<input id="tIcon" value="${esc(t.icon)}" placeholder="paste an emoji, e.g. 🌐">`;
-      document.getElementById('tIcon').oninput = e => { t.icon = e.target.value; renderTiles(); renderIconPreview(t); markDirty(); };
+      document.getElementById('tIcon').oninput = e => { t.icon = e.target.value; clearAutoSeed(t); renderTiles(); renderIconPreview(t); markDirty(); };
     } else if (type === 'app') {
       el.innerHTML = `<p class="hint">${t.value ? 'Uses this program’s own icon: <b>' + esc(t.value) + '</b>' : 'Set a program in Value first.'}</p>`;
       if (t.value) ensureAppIcon(t.value);
     } else if (type === 'image') {
       el.innerHTML = `<div class="row"><input id="tImage" value="${esc(t.iconImage)}" placeholder="path to an image" readonly><button id="tImgBrowse">Browse…</button></div>`;
-      document.getElementById('tImgBrowse').onclick = async () => { const p = await configApi.pickImage(); if (p) { t.iconImage = p; renderIconDetail(t); renderIconPreview(t); renderTiles(); markDirty(); } };
+      document.getElementById('tImgBrowse').onclick = async () => { const p = await configApi.pickImage(); if (p) { t.iconImage = p; clearAutoSeed(t); renderIconDetail(t); renderIconPreview(t); renderTiles(); markDirty(); } };
     } else if (type === 'url') {
       el.innerHTML = `<div class="row"><input id="tUrl" value="${esc(t.iconUrl)}" placeholder="https://…/icon.png" style="flex:1"><button id="tUrlGet">Fetch</button></div>
         <p class="hint" id="tUrlMsg" style="margin:4px 0 0">Paste an image URL, then Fetch — it's downloaded and cached so the icon works offline.</p>`;
@@ -305,7 +310,7 @@
         msg().textContent = 'Fetching…'; btn().disabled = true;
         const r = await configApi.fetchIconUrl(url);
         btn().disabled = false;
-        if (r && r.ok) { t.iconUrl = url; t.iconCache = r.cachePath; if (r.dataUrl) urlIconPreview[r.cachePath] = r.dataUrl; msg().textContent = 'Icon downloaded ✓'; sync(); renderIconPreview(t); renderTiles(); markDirty(); }
+        if (r && r.ok) { t.iconUrl = url; t.iconCache = r.cachePath; clearAutoSeed(t); if (r.dataUrl) urlIconPreview[r.cachePath] = r.dataUrl; msg().textContent = 'Icon downloaded ✓'; sync(); renderIconPreview(t); renderTiles(); markDirty(); }
         else { msg().textContent = (r && r.error) || 'Could not fetch that image.'; }
       };
     }
