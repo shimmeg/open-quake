@@ -110,13 +110,33 @@ test('encryptValue / decryptValue: empty and non-string values pass through', ()
   assert.equal(store.decryptValue('plain-text'), 'plain-text');
 });
 
-test('decryptValue returns empty string and does not throw on a corrupt blob', () => {
+test('decryptValue preserves the encrypted blob and does not throw on a corrupt blob', () => {
   const store = makeStore();
   const broken = createSecretStore({
     safeStorage: { isEncryptionAvailable: () => true, decryptString: () => { throw new Error('bad'); } },
     loadApps,
   });
-  assert.equal(broken.decryptValue(store.MARKER + 'garbage'), '');
+  const encrypted = store.MARKER + 'garbage';
+  assert.equal(broken.decryptValue(encrypted), encrypted);
+});
+
+test('decryptConfig preserves corrupted encrypted secrets so a later save cannot erase them', () => {
+  const store = makeStore();
+  const encrypted = store.MARKER + 'garbage';
+  const broken = createSecretStore({
+    safeStorage: {
+      isEncryptionAvailable: () => true,
+      encryptString: s => Buffer.from('ENC:' + s, 'utf8'),
+      decryptString: () => { throw new Error('bad'); },
+    },
+    loadApps,
+  });
+  const cfg = sampleConfig();
+  cfg.grids[0].auth.token = encrypted;
+
+  const dec = broken.decryptConfig(cfg);
+  assert.equal(dec.grids[0].auth.token, encrypted);
+  assert.equal(broken.encryptConfig(dec).grids[0].auth.token, encrypted);
 });
 
 test('hasPlaintextSecret detects a not-yet-encrypted secret and clears once encrypted', () => {
