@@ -82,7 +82,7 @@ function ensureSystemViewPage(port) {
 // The Music controller is a built-in APP page (kind:'app', app:'music') that embeds a programmable
 // 2x2 tile grid — edited in the editor exactly like Default/Media/Dev, its tiles launched via runAction.
 // Ensure one exists on first run; respect deletion thereafter (musicInjected gate).
-async function ensureMusicPage() {
+function ensureMusicPage() {
   if (!config.grids) config.grids = [];
   const def = loadApps().find(a => a.id === 'music');
   let g = config.grids.find(x => x.id === 'music');
@@ -98,8 +98,20 @@ async function ensureMusicPage() {
   if (!Array.isArray(g.tiles) || !g.tiles.length) {
     g.tiles = ((def && def.grid && def.grid.defaults) || []).map(t => Object.assign({}, t));
   }
-  await seedDefaultIconCachesInGrid(g, fetchIconToCache, { defaults: def && def.grid && def.grid.defaults, log: message => console.log(message) });
   saveConfig();
+  scheduleMusicIconSeed(g);
+}
+function scheduleMusicIconSeed(g) {
+  const def = loadApps().find(a => a.id === 'music');
+  setTimeout(() => {
+    seedDefaultIconCachesInGrid(g, fetchIconToCache, { defaults: def && def.grid && def.grid.defaults, log: message => console.log(message) })
+      .then(changed => {
+        if (!changed) return;
+        saveConfig();
+        if (activeGrid() === g) pushToPanel();
+      })
+      .catch(e => console.log('default icon seed failed: ' + (e && e.message ? e.message : e)));
+  }, 0);
 }
 // The Music app's embedded grid is served to the page (resolved icons) and its taps launched, both
 // keyed to whichever music page is currently shown.
@@ -644,7 +656,7 @@ app.whenReady().then(async () => {
   try {
     sysserver = require('./sysserver');
     serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig, getNowPlaying: process.platform === 'darwin' ? spotifyNowPlaying : null });
-    ensureSystemViewPage(serverPort); await ensureMusicPage();
+    ensureSystemViewPage(serverPort); ensureMusicPage();
     console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
   } catch (e) { console.log('local panel services failed to start:', e.message); }
   sweepIconCache();   // clean up orphaned URL-icon cache files left by prior sessions
@@ -687,11 +699,8 @@ app.whenReady().then(async () => {
     const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
     const wasRot = rotationCfg().enabled;                        // detect a fresh off->on to auto-start (else keep the runtime pause)
     config = newCfg;
-    const musicDef = loadApps().find(a => a.id === 'music');
     for (const g of config.grids) {
-      if (g && g.kind === 'app' && g.app === 'music') {
-        await seedDefaultIconCachesInGrid(g, fetchIconToCache, { defaults: musicDef && musicDef.grid && musicDef.grid.defaults, log: message => console.log(message) });
-      }
+      if (g && g.kind === 'app' && g.app === 'music') scheduleMusicIconSeed(g);
     }
     if (config.grids.some(g => g.id === active)) config.activeGridId = active;
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;

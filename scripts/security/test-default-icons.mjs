@@ -9,9 +9,12 @@ const require = createRequire(import.meta.url);
 const { seedDefaultIconCachesInGrid } = require('../../app/defaultIcons');
 
 test('seedDefaultIconCachesInGrid seeds only manifest-marked default URL icons', async () => {
+  const defaults = [
+    { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
+  ];
   const grid = {
     tiles: [
-      { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true },
+      { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
       { label: 'Custom', icon: 'C', iconType: 'url', iconUrl: 'https://example.com/icon.png' },
     ],
   };
@@ -19,7 +22,7 @@ test('seedDefaultIconCachesInGrid seeds only manifest-marked default URL icons',
   const changed = await seedDefaultIconCachesInGrid(grid, async url => {
     calls.push(url);
     return { ok: true, cachePath: `/tmp/${calls.length}.ico` };
-  });
+  }, { defaults });
 
   assert.equal(changed, true);
   assert.deepEqual(calls, ['https://open.spotify.com/favicon.ico']);
@@ -29,16 +32,19 @@ test('seedDefaultIconCachesInGrid seeds only manifest-marked default URL icons',
 });
 
 test('seedDefaultIconCachesInGrid is non-blocking on fetch failure and keeps fallback emoji', async () => {
+  const defaults = [
+    { label: 'Tidal', icon: 'T', iconType: 'url', iconUrl: 'https://listen.tidal.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://listen.tidal.com' },
+  ];
   const grid = {
     tiles: [
-      { label: 'Tidal', icon: 'T', iconType: 'url', iconUrl: 'https://listen.tidal.com/favicon.ico', iconAutoSeed: true },
+      { label: 'Tidal', icon: 'T', iconType: 'url', iconUrl: 'https://listen.tidal.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://listen.tidal.com' },
     ],
   };
   const messages = [];
   const changed = await seedDefaultIconCachesInGrid(
     grid,
     async () => ({ ok: false, error: 'network unavailable' }),
-    { log: message => messages.push(message) },
+    { defaults, log: message => messages.push(message) },
   );
 
   assert.equal(changed, false);
@@ -64,6 +70,27 @@ test('seedDefaultIconCachesInGrid skips already cached icons', async () => {
   assert.equal(changed, false);
   assert.equal(calls, 0);
   assert.equal(grid.tiles[0].iconCache, '/tmp/apple.ico');
+});
+
+test('seedDefaultIconCachesInGrid refuses auto-seed URLs that do not match bundled defaults', async () => {
+  const defaults = [
+    { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
+  ];
+  const grid = {
+    tiles: [
+      { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://example.com/not-default.png', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
+    ],
+  };
+  let calls = 0;
+  const changed = await seedDefaultIconCachesInGrid(grid, async () => {
+    calls += 1;
+    return { ok: true, cachePath: '/tmp/unsafe.ico' };
+  }, { defaults });
+
+  assert.equal(changed, false);
+  assert.equal(calls, 0);
+  assert.equal(grid.tiles[0].iconCache, undefined);
+  assert.equal(grid.tiles[0].iconAutoSeed, true);
 });
 
 test('seedDefaultIconCachesInGrid upgrades existing legacy Music defaults before seeding', async () => {
@@ -110,6 +137,24 @@ test('seedDefaultIconCachesInGrid does not upgrade customized matching service t
   assert.equal(grid.tiles[0].iconType, 'emoji');
   assert.equal(grid.tiles[0].iconUrl, undefined);
   assert.equal(grid.tiles[0].icon, '🎧');
+});
+
+test('seedDefaultIconCachesInGrid reports legacy metadata changes when icon fetch fails', async () => {
+  const defaults = [
+    { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
+  ];
+  const grid = {
+    tiles: [
+      { label: 'Spotify', icon: '🎵', iconType: 'emoji', type: 'url', value: 'https://open.spotify.com' },
+    ],
+  };
+  const changed = await seedDefaultIconCachesInGrid(grid, async () => ({ ok: false, error: 'offline' }), { defaults });
+
+  assert.equal(changed, true);
+  assert.equal(grid.tiles[0].iconType, 'url');
+  assert.equal(grid.tiles[0].iconUrl, 'https://open.spotify.com/favicon.ico');
+  assert.equal(grid.tiles[0].iconAutoSeed, true);
+  assert.equal(grid.tiles[0].iconCache, undefined);
 });
 
 test('Music app defaults declare real icon URLs with emoji fallback', () => {
