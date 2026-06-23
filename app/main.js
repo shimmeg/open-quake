@@ -84,6 +84,7 @@ function ensureSystemViewPage(port) {
 // Ensure one exists on first run; respect deletion thereafter (musicInjected gate).
 async function ensureMusicPage() {
   if (!config.grids) config.grids = [];
+  const def = loadApps().find(a => a.id === 'music');
   let g = config.grids.find(x => x.id === 'music');
   if (!g) {
     if (config.musicInjected) return;                      // user deleted it on purpose — leave it gone
@@ -95,10 +96,9 @@ async function ensureMusicPage() {
   if (typeof g.cols !== 'number') g.cols = 2;
   if (typeof g.rows !== 'number') g.rows = 2;
   if (!Array.isArray(g.tiles) || !g.tiles.length) {
-    const def = loadApps().find(a => a.id === 'music');
     g.tiles = ((def && def.grid && def.grid.defaults) || []).map(t => Object.assign({}, t));
   }
-  await seedDefaultIconCachesInGrid(g, fetchIconToCache, { log: message => console.log(message) });
+  await seedDefaultIconCachesInGrid(g, fetchIconToCache, { defaults: def && def.grid && def.grid.defaults, log: message => console.log(message) });
   saveConfig();
 }
 // The Music app's embedded grid is served to the page (resolved icons) and its taps launched, both
@@ -687,9 +687,10 @@ app.whenReady().then(async () => {
     const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
     const wasRot = rotationCfg().enabled;                        // detect a fresh off->on to auto-start (else keep the runtime pause)
     config = newCfg;
+    const musicDef = loadApps().find(a => a.id === 'music');
     for (const g of config.grids) {
       if (g && g.kind === 'app' && g.app === 'music') {
-        await seedDefaultIconCachesInGrid(g, fetchIconToCache, { log: message => console.log(message) });
+        await seedDefaultIconCachesInGrid(g, fetchIconToCache, { defaults: musicDef && musicDef.grid && musicDef.grid.defaults, log: message => console.log(message) });
       }
     }
     if (config.grids.some(g => g.id === active)) config.activeGridId = active;

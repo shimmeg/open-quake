@@ -66,6 +66,52 @@ test('seedDefaultIconCachesInGrid skips already cached icons', async () => {
   assert.equal(grid.tiles[0].iconCache, '/tmp/apple.ico');
 });
 
+test('seedDefaultIconCachesInGrid upgrades existing legacy Music defaults before seeding', async () => {
+  const defaults = [
+    { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
+  ];
+  const grid = {
+    tiles: [
+      { label: 'Spotify', icon: '🎵', iconType: 'emoji', type: 'url', value: 'https://open.spotify.com' },
+    ],
+  };
+  const calls = [];
+  const changed = await seedDefaultIconCachesInGrid(grid, async url => {
+    calls.push(url);
+    return { ok: true, cachePath: '/tmp/spotify.ico' };
+  }, { defaults });
+
+  assert.equal(changed, true);
+  assert.deepEqual(calls, ['https://open.spotify.com/favicon.ico']);
+  assert.equal(grid.tiles[0].iconType, 'url');
+  assert.equal(grid.tiles[0].iconUrl, 'https://open.spotify.com/favicon.ico');
+  assert.equal(grid.tiles[0].icon, '♪');
+  assert.equal(grid.tiles[0].iconCache, '/tmp/spotify.ico');
+  assert.equal(grid.tiles[0].iconAutoSeed, false);
+});
+
+test('seedDefaultIconCachesInGrid does not upgrade customized matching service tiles', async () => {
+  const defaults = [
+    { label: 'Spotify', icon: '♪', iconType: 'url', iconUrl: 'https://open.spotify.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://open.spotify.com' },
+  ];
+  const grid = {
+    tiles: [
+      { label: 'Spotify', icon: '🎧', iconType: 'emoji', type: 'url', value: 'https://open.spotify.com' },
+    ],
+  };
+  let calls = 0;
+  const changed = await seedDefaultIconCachesInGrid(grid, async () => {
+    calls += 1;
+    return { ok: true, cachePath: '/tmp/spotify.ico' };
+  }, { defaults });
+
+  assert.equal(changed, false);
+  assert.equal(calls, 0);
+  assert.equal(grid.tiles[0].iconType, 'emoji');
+  assert.equal(grid.tiles[0].iconUrl, undefined);
+  assert.equal(grid.tiles[0].icon, '🎧');
+});
+
 test('Music app defaults declare real icon URLs with emoji fallback', () => {
   const apps = JSON.parse(fs.readFileSync(new URL('../../apps/apps.json', import.meta.url), 'utf8'));
   const music = apps.find(app => app.id === 'music');
