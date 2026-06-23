@@ -414,8 +414,17 @@ function mediaKey(cmd) {
   return mediaKeys.transport(cmd);
 }
 
+function isPanelSize(w, h) {
+  return (w === 480 && h === 1920) || (w === 1920 && h === 480);
+}
 function deviceDisplay() {
-  return screen.getAllDisplays().find(d => (d.bounds.width === 480 && d.bounds.height === 1920) || (d.bounds.width === 1920 && d.bounds.height === 480));
+  const all = screen.getAllDisplays();
+  return all.find(d => /dk.?quake|aris.?68/i.test(d.label || ''))
+    || all.find(d => isPanelSize(d.bounds.width, d.bounds.height))
+    || all.find(d => {
+      const s = d.scaleFactor || 1;
+      return isPanelSize(Math.round(d.bounds.width * s), Math.round(d.bounds.height * s));
+    });
 }
 function applyPanelDisplayMode(d) {
   panelWin.setBounds(d.bounds);
@@ -477,6 +486,25 @@ function openConfigWindow() {
     ]);
     menu.popup({ window: configWin });
   });
+}
+
+function showAbout() {
+  const parent = configWin && !configWin.isDestroyed() ? configWin : null;
+  const options = {
+    type: 'info',
+    title: 'About open-quake',
+    message: 'open-quake v' + app.getVersion(),
+    detail: 'Open driver + touchscreen launcher for the DK-QUAKE / ARIS-68.\n\n'
+      + 'Electron ' + process.versions.electron + '  ·  Chromium ' + process.versions.chrome + '\n\n'
+      + 'Independent community project — not affiliated with or endorsed by DECOKEE.\n'
+      + 'github.com/TeeJS/open-quake',
+    buttons: ['Close', 'Open GitHub'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  };
+  const about = parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options);
+  about.then(r => { if (r.response === 1) openExternalUrl('https://github.com/TeeJS/open-quake'); }).catch(() => {});
 }
 
 // ---- device settings (knob RGB ring, mic) ----
@@ -543,7 +571,7 @@ function applyRotationSettings(wasEnabled) {
 function trayMenu() {
   const ringOn = lighting().effect !== 0;
   const items = [
-    { label: 'open-quake', enabled: false },
+    { label: 'open-quake v' + app.getVersion(), enabled: false },
     { type: 'separator' },
     { label: 'Open editor', click: () => openConfigWindow() },
     { label: micState ? 'Mic: on — click to disable' : 'Mic: off — click to enable', click: () => toggleMic() },
@@ -553,6 +581,7 @@ function trayMenu() {
   items.push(
     { label: 'Re-place panel on device', click: () => { try { dev.screenOn(); } catch (e) {} placePanel(); } },
     { type: 'separator' },
+    { label: 'About open-quake', click: () => showAbout() },
     { label: 'Quit', click: () => { try { dev.stop(); } catch (e) {} app.quit(); } },
   );
   return Menu.buildFromTemplate(items);
@@ -685,6 +714,15 @@ app.whenReady().then(async () => {
     }
   });
 
+  app.on('web-contents-created', (e, contents) => {
+    if (contents.getType() !== 'webview') return;
+    contents.setWindowOpenHandler(({ url }) => {
+      const g = activeGrid();
+      if (g && g.kind === 'web' && g.linksExternal) openExternalUrl(url);
+      return { action: 'deny' };
+    });
+  });
+
   ipcMain.on('launch', (e, a) => { if (!isFrom(e, panelWin)) return; runAction(a); });
   ipcMain.on('volume', (e, v) => { if (!isFrom(e, panelWin)) return; mediaKeys.volume(v); });
   ipcMain.on('switchGrid', (e, id) => { if (!isFrom(e, panelWin)) return; gotoGrid(id, true); if (rotateRunning) scheduleRotation(); });   // a manual pick resets the rotation timer
@@ -694,6 +732,7 @@ app.whenReady().then(async () => {
   ipcMain.on('openExternal', (e, url) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openExternalUrl(url); });
   ipcMain.handle('getConfig', (e) => isFrom(e, configWin) ? config : null);
   ipcMain.handle('getApps', (e) => isFrom(e, configWin) ? loadApps() : []);
+  ipcMain.handle('getVersion', (e) => isFrom(e, configWin) ? app.getVersion() : '');
   ipcMain.on('saveConfigFromEditor', async (e, newCfg) => {
     if (!isFrom(e, configWin) || !newCfg || typeof newCfg !== 'object' || !Array.isArray(newCfg.grids)) return;
     const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
@@ -791,10 +830,11 @@ app.whenReady().then(async () => {
     applyKnobSettings();
     applyMic(appSettings().micOnLaunch);
     // The mic indicator LED only latches once the panel is fully awake. At connect the device is still
-    // mid screen-on activation (screenOn fires at 0/300/800/1500ms), so this first setMic toggles the
-    // audio but the LED is dropped. Re-assert after activation settles — screenOn then setMic — which
-    // mirrors what a display re-wake does and forces the LED to follow the mic state.
-    setTimeout(() => { try { dev.screenOn(); } catch (e) {} applyMic(micState); console.log('mic LED re-assert:', micState); }, 2000);
+    // mid screen-on activation (screenOn fires at 0/300/800/1500ms), so the first setMic toggles the
+    // audio but the LED may be dropped. Re-assert on a cold-boot stagger using the live micState, so
+    // a user toggle between attempts is respected.
+    const reassertMic = tag => { try { dev.screenOn(); } catch (e) {} applyMic(micState); console.log('mic LED re-assert (' + tag + '):', micState); };
+    [2000, 5000, 9000].forEach(ms => setTimeout(() => reassertMic(ms + 'ms'), ms));
   });
   dev.on('error', e => console.log('dev error:', e.message));
   dev.start();
