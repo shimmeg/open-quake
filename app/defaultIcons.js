@@ -51,6 +51,8 @@ async function seedDefaultIconCachesInGrid(grid, fetchIconToCache, options = {})
       tile.iconAutoSeed = false;
       changed = true;
     } else {
+      tile.iconAutoSeed = false;
+      changed = true;
       log('default icon seed failed: ' + (tile.label || tile.iconUrl) + (result && result.error ? ' (' + result.error + ')' : ''));
     }
   }

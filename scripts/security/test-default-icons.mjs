@@ -47,12 +47,41 @@ test('seedDefaultIconCachesInGrid is non-blocking on fetch failure and keeps fal
     { defaults, log: message => messages.push(message) },
   );
 
-  assert.equal(changed, false);
+  assert.equal(changed, true);
   assert.equal(grid.tiles[0].iconCache, undefined);
   assert.equal(grid.tiles[0].icon, 'T');
-  assert.equal(grid.tiles[0].iconAutoSeed, true);
+  assert.equal(grid.tiles[0].iconAutoSeed, false);
   assert.equal(messages.length, 1);
   assert.match(messages[0], /default icon seed failed: Tidal/);
+});
+
+test('seedDefaultIconCachesInGrid does not retry failed automatic icon seeding on the next run', async () => {
+  const defaults = [
+    { label: 'Apple Music', icon: 'A', iconType: 'url', iconUrl: 'https://music.apple.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://music.apple.com' },
+  ];
+  const grid = {
+    tiles: [
+      { label: 'Apple Music', icon: 'A', iconType: 'url', iconUrl: 'https://music.apple.com/favicon.ico', iconAutoSeed: true, type: 'url', value: 'https://music.apple.com' },
+    ],
+  };
+  let calls = 0;
+  const firstChanged = await seedDefaultIconCachesInGrid(grid, async () => {
+    calls += 1;
+    return { ok: false, error: 'offline' };
+  }, { defaults });
+  const secondChanged = await seedDefaultIconCachesInGrid(grid, async () => {
+    calls += 1;
+    return { ok: true, cachePath: '/tmp/apple.ico' };
+  }, { defaults });
+
+  assert.equal(firstChanged, true);
+  assert.equal(secondChanged, false);
+  assert.equal(calls, 1);
+  assert.equal(grid.tiles[0].iconCache, undefined);
+  assert.equal(grid.tiles[0].iconAutoSeed, false);
+  assert.equal(grid.tiles[0].iconType, 'url');
+  assert.equal(grid.tiles[0].iconUrl, 'https://music.apple.com/favicon.ico');
+  assert.equal(grid.tiles[0].icon, 'A');
 });
 
 test('seedDefaultIconCachesInGrid skips already cached icons', async () => {
@@ -153,7 +182,7 @@ test('seedDefaultIconCachesInGrid reports legacy metadata changes when icon fetc
   assert.equal(changed, true);
   assert.equal(grid.tiles[0].iconType, 'url');
   assert.equal(grid.tiles[0].iconUrl, 'https://open.spotify.com/favicon.ico');
-  assert.equal(grid.tiles[0].iconAutoSeed, true);
+  assert.equal(grid.tiles[0].iconAutoSeed, false);
   assert.equal(grid.tiles[0].iconCache, undefined);
 });
 
